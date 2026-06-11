@@ -1,0 +1,117 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  scroll-behavior: smooth;
+  background-color: #f8fafc; /* Slate-50 background for clean Figma feel */
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.4);
+}
+
+/* Custom Figma design tokens */
+.figma-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0; /* slate-200 */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  border-radius: 1rem;
+}
+
+/* Priority Badges - Oval custom styles */
+.badge-priority-critical {
+  background-color: #fef2f2; /* red-50 */
+  color: #dc2626; /* red-600 */
+  border: 1px solid #fca5a5; /* red-300 */
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-weight: 800;
+  font-size: 9px;
+}
+
+.badge-priority-high {
+  background-color: #fffbeb; /* amber-50 */
+  color: #d97706; /* amber-600 */
+  border: 1px solid #fcd34d; /* amber-300 */
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-weight: 800;
+  font-size: 9px;
+}
+
+.badge-priority-medium {
+  background-color: #eff6ff; /* blue-50 */
+  color: #2563eb; /* blue-600 */
+  border: 1px solid #bfdbfe; /* blue-200 */
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-weight: 800;
+  font-size: 9px;
+}
+
+.badge-priority-low {
+  background-color: #f8fafc; /* slate-50 */
+  color: #475569; /* slate-600 */
+  border: 1px solid #cbd5e1; /* slate-300 */
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-weight: 800;
+  font-size: 9px;
+}
+
+/* AI Status Badge Circles */
+.circle-status-review {
+  background-color: #ecfdf5; /* emerald-50 */
+  color: #059669; /* emerald-600 */
+  border: 1px solid #a7f3d0; /* emerald-200 */
+  border-radius: 9999px;
+  padding: 0.25rem 0.6rem;
+  font-weight: 700;
+  font-size: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.circle-status-duplicate {
+  background-color: #fff5f5; /* red-50 */
+  color: #e53e3e; /* red-600 */
+  border: 1px solid #feb2b2; /* red-200 */
+  border-radius: 9999px;
+  padding: 0.25rem 0.6rem;
+  font-weight: 700;
+  font-size: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.circle-status-pending {
+  background-color: #f1f5f9; /* slate-100 */
+  color: #475569; /* slate-600 */
+  border: 1px solid #cbd5e1; /* slate-300 */
+  border-radius: 9999px;
+  padding: 0.25rem 0.6rem;
+  font-weight: 700;
+  font-size: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
