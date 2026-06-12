@@ -1,5 +1,5 @@
 // src/pages/management/RoleManagement.jsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import * as Lucide from 'lucide-react';
 
 export const RoleManagement = () => {

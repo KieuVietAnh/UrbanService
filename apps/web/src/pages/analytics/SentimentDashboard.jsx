@@ -1,5 +1,5 @@
 // src/pages/analytics/SentimentDashboard.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { analyticsApi } from '../../services/api/analyticsApi';
 import { SentimentDonutChart } from '../../components/charts/CustomCharts';
 import * as Lucide from 'lucide-react';

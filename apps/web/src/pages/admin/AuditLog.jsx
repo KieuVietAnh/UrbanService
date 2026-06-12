@@ -1,5 +1,5 @@
 // src/pages/admin/AuditLog.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { mockDb } from '../../store/mockStore';
 
 export const AuditLog = () => {

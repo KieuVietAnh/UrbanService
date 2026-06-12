@@ -1,5 +1,5 @@
 // src/pages/tickets/TicketAssignment.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ticketApi } from '../../services/api/ticketApi';
@@ -19,29 +19,28 @@ export const TicketAssignment = () => {
   const [loading, setLoading] = useState(true);
   const [assignLoading, setAssignLoading] = useState(false);
 
-  const fetchDetails = async () => {
-    try {
-      const resTicket = await ticketApi.getTicketById(id);
-      const resOps = await assignmentApi.getOperators();
-      
-      setTicket(resTicket);
-      // Filter operators that handle this ticket's category
-      const filteredOps = resOps.filter(o => o.categoryId === resTicket.categoryId);
-      setOperators(filteredOps);
-      if (filteredOps.length > 0) {
-        setSelectedOperatorId(filteredOps[0].operatorId);
-      }
-    } catch (err) {
-      console.error(err);
-      navigate('/staff/queue');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchDetails();
-  }, [id]);
+    const loadDetails = async () => {
+      try {
+        const resTicket = await ticketApi.getTicketById(id);
+        const resOps = await assignmentApi.getOperators();
+
+        setTicket(resTicket);
+        const filteredOps = resOps.filter(o => o.categoryId === resTicket.categoryId);
+        setOperators(filteredOps);
+        if (filteredOps.length > 0) {
+          setSelectedOperatorId(filteredOps[0].operatorId);
+        }
+      } catch (err) {
+        console.error(err);
+        navigate('/staff/queue');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDetails();
+  }, [id, navigate]);
 
   const handleAssign = async (e) => {
     e.preventDefault();

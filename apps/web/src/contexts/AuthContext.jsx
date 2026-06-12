@@ -2,22 +2,15 @@
 import { createContext, useContext, useState } from 'react';
 import { authApi } from '../services/api/authApi';
 import { tokenStorage } from '../services/storage/tokenStorage';
+import { getInternalRole } from '../utils/roleMap';
 
 const AuthContext = createContext(null);
 
-const normalizeRole = (role) => {
-  if (!role) return role;
-  const normalized = String(role).trim().toLowerCase();
-  if (normalized === 'serviceuser' || normalized === 'service-user') return 'service-user';
-  if (normalized === 'systemstaff' || normalized === 'system-staff') return 'system-staff';
-  if (normalized === 'serviceprovider' || normalized === 'service-provider') return 'service-provider';
-  if (normalized === 'interactionmanager' || normalized === 'interaction-manager') return 'interaction-manager';
-  if (normalized === 'systemadmin' || normalized === 'admin' || normalized === 'administrator') return 'administrator';
-  return normalized;
-};
+const normalizeRole = (role) => getInternalRole(role);
 
 const initializeUser = () => {
   const savedUser = tokenStorage.getUser();
+  console.log('AuthContext initializeUser localStorage user', savedUser);
   if (!savedUser) return null;
   return {
     ...savedUser,
@@ -33,14 +26,13 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       const res = await authApi.login(email, password);
-      setUser({
-        ...res.user,
-        role: normalizeRole(res.user.role),
-      });
-      return {
+      console.log('AuthContext login response', res);
+      const updatedUser = {
         ...res.user,
         role: normalizeRole(res.user.role),
       };
+      setUser(updatedUser);
+      return updatedUser;
     } finally {
       setLoading(false);
     }
@@ -66,13 +58,14 @@ export const AuthProvider = ({ children }) => {
   const verifyOtp = async (otp) => {
     setLoading(true);
     try {
-      await authApi.verifyOTP(otp);
-      // Update user's verified status
-      const updatedUser = tokenStorage.getUser();
+      const result = await authApi.verifyOTP(otp);
+      console.log('AuthContext verifyOtp result', result);
+      const updatedUser = result?.user || tokenStorage.getUser();
+      console.log('AuthContext verifyOtp updatedUser', updatedUser);
       if (updatedUser) {
         setUser(updatedUser);
       }
-      return { success: true };
+      return result;
     } finally {
       setLoading(false);
     }

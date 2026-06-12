@@ -1,13 +1,11 @@
 // src/pages/tickets/DuplicateDetection.jsx
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ticketApi } from '../../services/api/ticketApi';
 import { mockDb } from '../../store/mockStore';
 import * as Lucide from 'lucide-react';
 
 export const DuplicateDetection = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [tickets, setTickets] = useState([]);
   

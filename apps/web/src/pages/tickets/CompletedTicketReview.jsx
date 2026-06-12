@@ -1,12 +1,10 @@
 // src/pages/tickets/CompletedTicketReview.jsx
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ticketApi } from '../../services/api/ticketApi';
 import * as Lucide from 'lucide-react';
 
 export const CompletedTicketReview = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);

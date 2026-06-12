@@ -1,5 +1,5 @@
 // src/pages/settings/SettingsPage.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import * as Lucide from 'lucide-react';
 
 export const SettingsPage = () => {

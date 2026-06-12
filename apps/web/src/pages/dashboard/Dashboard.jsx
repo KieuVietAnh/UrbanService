@@ -1,5 +1,5 @@
 // src/pages/dashboard/Dashboard.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ticketApi } from '../../services/api/ticketApi';
@@ -16,32 +16,34 @@ export const Dashboard = () => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchStatsAndTickets = async () => {
-    setLoading(true);
-    try {
-      const resStats = await analyticsApi.getSystemDashboardStats();
-      setStats(resStats);
-
-      let resTickets = [];
-      if (user.role === 'service-user') {
-        resTickets = await ticketApi.getTickets({ userId: user.userId });
-      } else if (user.role === 'service-provider') {
-        resTickets = await ticketApi.getTickets({ operatorId: user.operatorId });
-      } else {
-        resTickets = await ticketApi.getTickets();
-      }
-      setTickets(resTickets);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (user) {
-      fetchStatsAndTickets();
-    }
+    if (!user) return;
+
+    const loadDashboardContent = async () => {
+      setLoading(true);
+      try {
+        const resStats = await analyticsApi.getSystemDashboardStats();
+        setStats(resStats);
+
+        let resTickets = [];
+        if (user.role === 'service-user') {
+          resTickets = await ticketApi.getTickets({ userId: user.userId });
+        } else if (user.role === 'service-provider') {
+          resTickets = await ticketApi.getTickets({ operatorId: user.operatorId });
+        } else {
+          resTickets = await ticketApi.getTickets();
+        }
+
+        console.log('Dashboard ticket fetch response', resTickets);
+        setTickets(Array.isArray(resTickets) ? resTickets : []);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboardContent();
   }, [user]);
 
   if (loading || !stats) {
@@ -221,7 +223,7 @@ export const Dashboard = () => {
                     <td colSpan="6" className="text-center py-8 text-slate-400 font-bold">Bạn chưa gửi phản ánh nào</td>
                   </tr>
                 ) : (
-                  tickets.slice(0, 3).map((t) => (
+                  (Array.isArray(tickets) ? tickets.slice(0, 3) : []).map((t) => (
                     <tr key={t.feedbackId} className="hover:bg-slate-50/50">
                       <td className="font-bold text-[#0052CC] py-3.5">{formatTicketId(t.feedbackId)}</td>
                       <td className="max-w-[240px] font-semibold py-3.5 text-slate-700 truncate">
@@ -350,9 +352,6 @@ export const Dashboard = () => {
   // 2. SYSTEM STAFF DASHBOARD (Figma: Không gian làm việc - Nhân viên.png)
   // ----------------------------------------------------
   if (user.role === 'system-staff') {
-    const submittedCount = tickets.filter(t => t.status === 'Submitted').length;
-    const resolvedAwaitingCount = tickets.filter(t => t.status === 'Resolved' && t.reviews.length === 0).length;
-
     return (
       <div className="space-y-6 text-slate-800">
         
@@ -464,7 +463,7 @@ export const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {tickets.slice(0, 4).map(t => (
+                {(Array.isArray(tickets) ? tickets.slice(0, 4) : []).map(t => (
                   <tr key={t.feedbackId} className="hover:bg-slate-50/50">
                     <td className="font-bold text-[#0052CC] py-3.5">{formatTicketId(t.feedbackId)}</td>
                     <td className="max-w-[200px] font-semibold py-3.5 text-slate-700">

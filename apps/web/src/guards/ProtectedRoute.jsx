@@ -1,10 +1,10 @@
 // src/guards/ProtectedRoute.jsx
-import React from 'react';
+
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -18,6 +18,10 @@ export const ProtectedRoute = ({ children }) => {
   if (!isAuthenticated) {
     // Redirect to login but keep current location
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (user && user.isVerified === false) {
+    return <Navigate to="/verify-email" replace />;
   }
 
   return children;

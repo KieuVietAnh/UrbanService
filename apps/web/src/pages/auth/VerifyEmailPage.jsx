@@ -20,6 +20,10 @@ export const VerifyEmailPage = () => {
   useEffect(() => {
     if (!user) {
       navigate('/login');
+      return;
+    }
+    if (user.isVerified) {
+      navigate('/dashboard');
     }
   }, [user, navigate]);
 

@@ -47,9 +47,11 @@ export const LoginPage = () => {
     setLoading(true);
     try {
       const user = await login(email, password);
+      console.log('LoginPage - login returned user', user);
+      console.log('LoginPage - auth context user after login', user);
       
       // If email not verified, redirect to verification
-      if (!user.isVerified) {
+      if (!user?.isVerified) {
         navigate('/verify-email');
         return;
       }

@@ -1,5 +1,5 @@
 // src/pages/management/UserManagement.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { userApi } from '../../services/api/userApi';
 import * as Lucide from 'lucide-react';

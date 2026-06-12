@@ -1,5 +1,5 @@
 // src/pages/community/CommunityFeedPage.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { mockDb } from '../../store/mockStore';
 import * as Lucide from 'lucide-react';
@@ -24,7 +24,6 @@ export const CommunityFeedPage = () => {
     const allTickets = mockDb.getTickets();
     const ticket = allTickets.find(t => t.feedbackId === feedbackId);
     if (ticket) {
-      const history = mockDb.get('urbanmind_history') || [];
       if (!isSupported) {
         // Mock Upvote
         ticket.confidenceScore = (ticket.confidenceScore || 0.9) + 0.01; // increase visibility score

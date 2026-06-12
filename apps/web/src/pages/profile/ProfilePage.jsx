@@ -1,7 +1,7 @@
 // src/pages/profile/ProfilePage.jsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import * as Lucide from 'lucide-react';
+import { getRoleLabel } from '../../utils/roleMap';
 
 export const ProfilePage = () => {
   const { user } = useAuth();
@@ -33,7 +33,7 @@ export const ProfilePage = () => {
           <div className="text-center sm:text-left space-y-1">
             <h3 className="font-extrabold text-base">{user?.fullName}</h3>
             <span className="badge badge-sm font-bold uppercase tracking-wider py-2 px-2.5 badge-primary">
-              Vai trò: {user?.role}
+              Vai trò: {getRoleLabel(user?.role)}
             </span>
             <p className="text-[10px] text-gray-400 font-semibold block mt-1">Hệ thống ghi nhận: {new Date(user?.createdAt).toLocaleDateString()}</p>
           </div>

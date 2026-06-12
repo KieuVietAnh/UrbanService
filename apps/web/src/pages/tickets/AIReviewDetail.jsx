@@ -1,5 +1,5 @@
 // src/pages/tickets/AIReviewDetail.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ticketApi } from '../../services/api/ticketApi';
@@ -17,29 +17,29 @@ export const AIReviewDetail = () => {
   const [editPriority, setEditPriority] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const fetchQueue = async () => {
-    try {
-      const res = await ticketApi.getTickets({ status: 'Submitted' });
-      setTickets(res);
-      if (res.length > 0) {
-        handleSelectTicket(res[0]);
-      } else {
-        setSelectedTicket(null);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    fetchQueue();
-  }, []);
-
   const handleSelectTicket = (t) => {
     setSelectedTicket(t);
     setEditCategoryId(t.categoryId);
     setEditPriority(t.priority);
   };
+
+  useEffect(() => {
+    const loadQueue = async () => {
+      try {
+        const res = await ticketApi.getTickets({ status: 'Submitted' });
+        setTickets(res);
+        if (res.length > 0) {
+          handleSelectTicket(res[0]);
+        } else {
+          setSelectedTicket(null);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    loadQueue();
+  }, []);
 
   const handleApprove = async () => {
     if (!selectedTicket) return;

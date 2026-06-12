@@ -1,5 +1,5 @@
 // src/components/layout/DashboardLayout.jsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import * as Lucide from 'lucide-react';

@@ -1,6 +1,5 @@
 // src/pages/analytics/HeatmapDashboard.jsx
-import React, { useState } from 'react';
-import * as Lucide from 'lucide-react';
+import { useState } from 'react';
 
 export const HeatmapDashboard = () => {
   const [filterCategory, setFilterCategory] = useState('all');

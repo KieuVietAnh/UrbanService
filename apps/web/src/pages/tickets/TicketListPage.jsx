@@ -1,5 +1,5 @@
 // src/pages/tickets/TicketListPage.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { ticketApi } from '../../services/api/ticketApi';
@@ -18,7 +18,7 @@ export const TicketListPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
 
-  const fetchTickets = async () => {
+  const fetchTickets = useCallback(async () => {
     setLoading(true);
     try {
       const filters = {
@@ -36,11 +36,11 @@ export const TicketListPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, search, status, categoryId]);
 
   useEffect(() => {
     fetchTickets();
-  }, [user, search, status, categoryId]);
+  }, [fetchTickets]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -143,7 +143,7 @@ export const TicketListPage = () => {
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalItems);
-  const paginatedTickets = tickets.slice(startIndex, endIndex);
+  const paginatedTickets = Array.isArray(tickets) ? tickets.slice(startIndex, endIndex) : [];
 
   return (
     <div className="space-y-6 text-slate-800">

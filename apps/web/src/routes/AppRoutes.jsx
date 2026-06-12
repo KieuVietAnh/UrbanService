@@ -45,15 +45,16 @@ import { AuditLog } from '../pages/admin/AuditLog';
 import { PerformanceDashboard } from '../pages/admin/PerformanceDashboard';
 
 export const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const authRedirect = user?.isVerified ? '/dashboard' : '/verify-email';
 
   return (
     <Routes>
       {/* Public Pages */}
-      <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={isAuthenticated ? <Navigate to={authRedirect} replace /> : <LandingPage />} />
+      <Route path="/login" element={isAuthenticated ? <Navigate to={authRedirect} replace /> : <LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/verify-email" element={isAuthenticated ? <VerifyEmailPage /> : <Navigate to="/login" replace />} />
       <Route path="/about" element={<AboutPage />} />
 
       {/* Protected Pages (All Auth Roles) */}

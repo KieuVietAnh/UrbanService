@@ -23,6 +23,7 @@ export const CreateTicketPage = () => {
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
   const [attachments, setAttachments] = useState([]);
+  const [submitError, setSubmitError] = useState('');
   
   // AI Simulation States
   const [aiAnalysis, setAiAnalysis] = useState(null);
@@ -32,11 +33,11 @@ export const CreateTicketPage = () => {
 
   // File Upload base64 simulation
   const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
-    files.forEach(file => {
+    const files = Array.from(e.target.files || []);
+    files.forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setAttachments(prev => [...prev, reader.result]);
+        setAttachments((prev) => [...prev, { file, preview: reader.result }]);
       };
       reader.readAsDataURL(file);
     });
@@ -70,22 +71,36 @@ export const CreateTicketPage = () => {
   };
 
   const handleSubmit = async () => {
+    setSubmitError('');
+    if (!latitude || !longitude || !locationText) {
+      setSubmitError('Vui lòng chọn vị trí trên bản đồ trước khi gửi phản ánh.');
+      return;
+    }
+
+    if (attachments.length === 0) {
+      setSubmitError('Vui lòng tải lên ít nhất một hình ảnh minh chứng trước khi gửi.');
+      return;
+    }
     if (!latitude || !longitude || !locationText) return;
     setLoading(true);
+    const payload = {
+      title,
+      description,
+      categoryId,
+      priority,
+      locationText,
+      latitude,
+      longitude,
+      attachments: attachments.map((item) => item.file),
+    };
+    console.log('Submitting createTicket payload', payload);
     try {
-      await ticketApi.createTicket(user.userId, user.fullName, {
-        title,
-        description,
-        categoryId,
-        priority,
-        locationText,
-        latitude,
-        longitude,
-        attachments
-      });
+      const response = await ticketApi.createTicket(user.userId, user.fullName, payload);
+      console.log('createTicket response', response);
       setStep(5); // Success step
     } catch (err) {
-      console.error(err);
+      console.error('createTicket error', err);
+      setSubmitError(err.message || 'Không thể gửi phản ánh. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
     }
@@ -378,12 +393,12 @@ export const CreateTicketPage = () => {
           {/* Preview uploaded images */}
           {attachments.length > 0 && (
             <div className="grid grid-cols-3 gap-3">
-              {attachments.map((img, idx) => (
+              {attachments.map((attachment, idx) => (
                 <div key={idx} className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-200 group">
-                  <img src={img} alt="Evidence" className="w-full h-full object-cover" />
+                  <img src={attachment.preview} alt="Evidence" className="w-full h-full object-cover" />
                   <button 
                     type="button"
-                    onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
+                    onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
                     className="absolute top-1.5 right-1.5 p-1 bg-black/60 hover:bg-black text-white rounded-full transition-colors"
                   >
                     <Lucide.Trash size={12} />
@@ -411,12 +426,18 @@ export const CreateTicketPage = () => {
             <button 
               type="button" 
               onClick={handleSubmit} 
-              disabled={loading}
+              disabled={loading || attachments.length === 0}
               className="btn btn-primary flex-1 rounded-xl font-bold text-xs h-11"
             >
               {loading ? <span className="loading loading-spinner"></span> : 'Gửi Phản Ánh Ngay'}
             </button>
           </div>
+          {submitError && (
+            <div className="text-sm text-red-600 font-semibold text-center">{submitError}</div>
+          )}
+          {attachments.length === 0 && (
+            <p className="text-[10px] text-red-500 font-semibold text-center">Bạn cần tải lên ít nhất một ảnh minh chứng để gửi phản ánh.</p>
+          )}
         </div>
       )}
 

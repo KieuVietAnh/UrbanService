@@ -1,113 +1,35 @@
 // src/pages/tickets/TicketDetailPage.jsx
-import React, { useState, useEffect, useRef } from 'react';
+
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { ticketApi } from '../../services/api/ticketApi';
-import { signalrService } from '../../services/socket/signalrService';
-import { mockDb } from '../../store/mockStore';
-import { LocationPicker } from '../../components/maps/LocationPicker';
+import useTicketDetail from '../../hooks/useTicketDetail';
+import { TICKET_STATUS_STEPS, getStatusStep, PRIORITY_BADGE_CLASSES, STATUS_BADGE_CLASSES } from '@urbanmind/shared-types';
 import * as Lucide from 'lucide-react';
 
 export const TicketDetailPage = () => {
-  const { id } = useParams();
+  const { id: feedbackId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [ticket, setTicket] = useState(null);
-  const [comments, setComments] = useState([]);
-  const [history, setHistory] = useState([]);
-  const [chatInput, setChatInput] = useState('');
-  const [loading, setLoading] = useState(true);
-  
-  // Rating states (Flow 4)
-  const [rating, setRating] = useState(5);
-  const [satisfied, setSatisfied] = useState(true);
-  const [reviewComment, setReviewComment] = useState('');
-  const [ratingLoading, setRatingLoading] = useState(false);
-
-  const chatEndRef = useRef(null);
-
-  const fetchDetails = async () => {
-    try {
-      const resTicket = await ticketApi.getTicketById(id);
-      const resComments = await ticketApi.getComments(id);
-      const resHist = await ticketApi.getHistory(id);
-      
-      setTicket(resTicket);
-      setComments(resComments);
-      setHistory(resHist);
-    } catch (err) {
-      console.error(err);
-      navigate('/dashboard');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDetails();
-
-    // SignalR Socket Simulation Connection
-    signalrService.start();
-    
-    // Register listener for chat messages
-    const handleReceiveMessage = (feedbackId, comment) => {
-      if (feedbackId === id) {
-        setComments(prev => [...prev, comment]);
-      }
-    };
-    
-    signalrService.on('ReceiveChatMessage', handleReceiveMessage);
-
-    return () => {
-      signalrService.off('ReceiveChatMessage', handleReceiveMessage);
-      signalrService.stop();
-    };
-  }, [id]);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [comments]);
-
-  const handleSendChat = async (e) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-    
-    const text = chatInput;
-    setChatInput('');
-    
-    // Send message via SignalR mock service
-    await signalrService.sendChatMessage(id, user, text);
-    
-    // Refresh history in case system logs are updated
-    const resHist = await ticketApi.getHistory(id);
-    setHistory(resHist);
-  };
-
-  const handleRateSubmit = async (e) => {
-    e.preventDefault();
-    setRatingLoading(true);
-    try {
-      await ticketApi.submitReview(id, user.userId, rating, satisfied, reviewComment);
-      await fetchDetails();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setRatingLoading(false);
-    }
-  };
-
-  const getStatusStep = (status) => {
-    switch (status) {
-      case 'Submitted': return 0;
-      case 'AI Reviewed': return 1;
-      case 'Assigned': return 2;
-      case 'InProgress': return 3;
-      case 'Resolved': return 4;
-      case 'Closed': return 5;
-      default: return 0;
-    }
-  };
+  const {
+    ticket,
+    comments,
+    history,
+    chatInput,
+    setChatInput,
+    loading,
+    error,
+    handleSendChat,
+    handleRateSubmit,
+    rating,
+    setRating,
+    satisfied,
+    setSatisfied,
+    reviewComment,
+    setReviewComment,
+    ratingLoading,
+    getAttachmentUrl,
+  } = useTicketDetail(feedbackId, user);
 
   const getRatingText = (val) => {
     switch (val) {
@@ -126,6 +48,8 @@ export const TicketDetailPage = () => {
     return `UM-2026-00${num}`;
   };
 
+  // attachment URL helper provided by the hook: getAttachmentUrl
+
   if (loading) {
     return (
       <div className="flex justify-center py-20 bg-white rounded-3xl border border-slate-200">
@@ -134,15 +58,21 @@ export const TicketDetailPage = () => {
     );
   }
 
+  if (!ticket) {
+    return (
+      <div className="flex justify-center py-20 bg-white rounded-3xl border border-slate-200 text-slate-700">
+        <div className="text-center">
+          <p className="font-bold text-sm">{error || 'Unable to load feedback details.'}</p>
+          <p className="text-xs text-slate-500">Vui lòng thử lại hoặc quay lại danh sách.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const attachments = Array.isArray(ticket?.attachments) ? ticket.attachments : [];
+
   const currentStep = getStatusStep(ticket.status);
-  const steps = [
-    { title: 'Đã gửi', sub: 'Submitted' },
-    { title: 'Kiểm duyệt', sub: 'AI Reviewed' },
-    { title: 'Điều phối', sub: 'Assigned' },
-    { title: 'Đang xử lý', sub: 'In Progress' },
-    { title: 'Đã xử lý', sub: 'Resolved' },
-    { title: 'Đã đóng', sub: 'Closed' }
-  ];
+  const steps = TICKET_STATUS_STEPS;
 
   return (
     <div className="space-y-6 text-slate-800">
@@ -161,7 +91,7 @@ export const TicketDetailPage = () => {
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-slate-400">{formatTicketId(ticket.feedbackId)}</span>
             <span className="badge bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE] badge-xs font-black py-2 px-2.5 rounded-lg uppercase">
-              {mockDb.getCategories().find(c => c.categoryId === ticket.categoryId)?.categoryName}
+              {ticket.categoryName || 'Chưa có danh mục'}
             </span>
             {ticket.isMasterTicket && <span className="badge badge-accent badge-xs font-black py-2 px-2.5 rounded-lg text-white">MASTER TICKET</span>}
           </div>
@@ -173,16 +103,11 @@ export const TicketDetailPage = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className={`badge font-bold py-2.5 px-3 rounded-lg border uppercase ${
-            ticket.priority === 'Critical' ? 'bg-red-50 text-red-600 border-red-200' : 
-            (ticket.priority === 'High' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-blue-50 text-blue-600 border-blue-200')
-          }`}>
-            Ưu tiên: {ticket.priority}
+          <span className={`badge font-bold py-2.5 px-3 rounded-lg border uppercase ${PRIORITY_BADGE_CLASSES[ticket.priority] || PRIORITY_BADGE_CLASSES.Medium}`}>
+            Ưu tiên: {ticket.priority || 'Không xác định'}
           </span>
-          <span className={`badge font-bold py-2.5 px-3 rounded-lg border uppercase ${
-            ticket.status === 'Resolved' || ticket.status === 'Closed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-300'
-          }`}>
-            Trạng thái: {ticket.status}
+          <span className={`badge font-bold py-2.5 px-3 rounded-lg border uppercase ${STATUS_BADGE_CLASSES[ticket.status] || STATUS_BADGE_CLASSES.default}`}>
+            Trạng thái: {ticket.status || 'Không xác định'}
           </span>
         </div>
       </div>
@@ -192,18 +117,20 @@ export const TicketDetailPage = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <h4 className="font-extrabold text-sm text-slate-900">Vị Trí Sự Cố</h4>
-              <p className="text-xs text-slate-500 font-semibold">Xem vị trí đã gửi trên bản đồ với chế độ chỉ xem.</p>
+              <h4 className="font-extrabold text-sm text-slate-900">Thông tin phản ánh</h4>
+              <p className="text-xs text-slate-500 font-semibold">Dữ liệu được tải trực tiếp từ API phản ánh.</p>
             </div>
-            <span className="badge badge-sm bg-slate-100 text-slate-600 border border-slate-200 font-bold">Chỉ xem</span>
           </div>
-          <LocationPicker
-            readonly
-            latitude={ticket.latitude}
-            longitude={ticket.longitude}
-            initialLatitude={ticket.latitude || 10.776530}
-            initialLongitude={ticket.longitude || 106.700981}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-700">
+            <div className="space-y-1">
+              <div className="font-bold text-slate-500 uppercase">Địa chỉ</div>
+              <div className="text-slate-900 font-semibold">{ticket.locationText || 'Không có thông tin vị trí'}</div>
+            </div>
+            <div className="space-y-1">
+              <div className="font-bold text-slate-500 uppercase">Ngày tạo</div>
+              <div className="text-slate-900 font-semibold">{ticket.createdAt ? new Date(ticket.createdAt).toLocaleString() : 'Không có thông tin'}</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -211,7 +138,7 @@ export const TicketDetailPage = () => {
       <div className="card bg-white border border-slate-200 p-6 rounded-3xl shadow-sm overflow-x-auto">
         <div className="flex justify-between items-center w-full min-w-[600px] px-4">
           {steps.map((st, idx) => (
-            <React.Fragment key={idx}>
+            <>
               {idx > 0 && (
                 <div className={`h-0.5 flex-1 mx-2 rounded-full transition-colors duration-300 ${
                   currentStep >= idx ? 'bg-[#0052CC]' : 'bg-slate-200'
@@ -228,7 +155,7 @@ export const TicketDetailPage = () => {
                 <span className="text-[10px] font-black mt-2 text-slate-700">{st.title}</span>
                 <span className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">{st.sub}</span>
               </div>
-            </React.Fragment>
+            </>
           ))}
         </div>
       </div>
@@ -250,49 +177,32 @@ export const TicketDetailPage = () => {
               </p>
             </div>
 
-            {/* Before / After photo comparison */}
-            {ticket.status === 'Resolved' || ticket.status === 'Closed' ? (
-              <div className="space-y-3 pt-2">
-                <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">So sánh hình ảnh hiện trường</span>
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Before */}
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Hình ảnh phản ánh (Trước)</span>
-                    <div className="rounded-2xl overflow-hidden border border-slate-200 aspect-video block bg-slate-50">
-                      {ticket.attachments && ticket.attachments.length > 0 ? (
-                        <img src={ticket.attachments[0]} alt="Before" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-350 text-[10px] font-bold">Không có ảnh trước</div>
-                      )}
-                    </div>
-                  </div>
-                  {/* After */}
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Hình ảnh nghiệm thu (Sau)</span>
-                    <div className="rounded-2xl overflow-hidden border border-slate-200 aspect-video block bg-slate-50">
-                      {ticket.resolution?.attachments && ticket.resolution.attachments.length > 0 ? (
-                        <img src={ticket.resolution.attachments[0]} alt="After" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-350 text-[10px] font-bold">Chưa bàn giao ảnh sau</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              ticket.attachments && ticket.attachments.length > 0 && (
-                <div className="space-y-2 pt-2">
-                  <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">Hình ảnh đính kèm</span>
-                  <div className="grid grid-cols-2 gap-3">
-                    {ticket.attachments.map((img, i) => (
-                      <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="rounded-2xl overflow-hidden border border-slate-200 aspect-video block bg-slate-50">
-                        <img src={img} alt="Evidence" className="w-full h-full object-cover hover:scale-102 transition-transform" />
+            {/* Attachments section */}
+            <div className="space-y-2 pt-2">
+              <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">Hình ảnh đính kèm</span>
+              {attachments.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {attachments.map((file, i) => {
+                    const fileUrl = getAttachmentUrl(file);
+                    return (
+                      <a
+                        key={i}
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-2xl overflow-hidden border border-slate-200 aspect-video block bg-slate-50 shadow-sm"
+                      >
+                        <img src={fileUrl} alt={`Attachment ${i + 1}`} className="w-full h-full object-cover hover:scale-102 transition-transform" />
                       </a>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
-              )
-            )}
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-500 text-[10px] font-semibold text-center">
+                  Không có tệp đính kèm.
+                </div>
+              )}
+            </div>
 
             {/* SLA countdown info */}
             {ticket.dueDate && ticket.status !== 'Resolved' && ticket.status !== 'Closed' && (
@@ -307,37 +217,26 @@ export const TicketDetailPage = () => {
               </div>
             )}
 
-            {/* Operator Resolution Text Summary */}
-            {ticket.resolution && (
-              <div className="card bg-emerald-50/40 border border-emerald-250 p-5 rounded-2xl space-y-3">
-                <div className="flex items-center gap-1.5 text-emerald-600 font-extrabold text-xs">
-                  <Lucide.CheckSquare size={16} />
-                  <span>Báo Cáo Nghiệm Thu Từ Đội Kỹ Thuật</span>
-                </div>
-                <div className="text-xs space-y-2 text-slate-700">
-                  <p><span className="font-bold text-slate-400">Tóm tắt:</span> <span className="font-semibold text-slate-800">{ticket.resolution.resolutionSummary}</span></p>
-                  <p><span className="font-bold text-slate-400">Biện pháp:</span> <span className="font-semibold text-slate-650">{ticket.resolution.actionTaken}</span></p>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Activity Log / Status Timeline History */}
           <div className="card bg-white border border-slate-200 p-6 rounded-3xl shadow-sm space-y-4">
             <h4 className="font-extrabold text-sm border-b border-slate-100 pb-2 text-slate-900">Lịch Sử Cập Nhật Trạng Thái</h4>
             <div className="space-y-4 text-xs">
-              {history.map((h, i) => (
-                <div key={i} className="flex gap-4 items-start last:pb-0">
+              {history.length > 0 ? history.filter(Boolean).map((h, i) => (
+                <div key={h?.historyId ?? i} className="flex gap-4 items-start last:pb-0">
                   <div className="w-2.5 h-2.5 rounded-full bg-[#0052CC] mt-1.5 ring-4 ring-[#0052CC]/10 shrink-0"></div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center gap-2">
-                      <span className="font-extrabold text-slate-750">{h.newStatus}</span>
-                      <span className="text-[9px] text-slate-400 font-bold">{new Date(h.changedAt).toLocaleString()}</span>
+                      <span className="font-extrabold text-slate-750">{h?.newStatus || h?.status || 'Cập nhật'}</span>
+                      <span className="text-[9px] text-slate-400 font-bold">{h?.changedAt ? new Date(h.changedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---'}</span>
                     </div>
-                    <p className="text-slate-500 mt-0.5 font-medium leading-relaxed">{h.note}</p>
+                    <p className="text-slate-500 mt-0.5 font-medium leading-relaxed">{h?.note || h?.description || 'Không có ghi chú'}</p>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-slate-500 text-[10px]">Không có lịch sử trạng thái.</div>
+              )}
             </div>
           </div>
         </div>
@@ -428,28 +327,35 @@ export const TicketDetailPage = () => {
 
             {/* Messages body */}
             <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
-              {comments.length === 0 ? (
+              {(!Array.isArray(comments) || comments.filter(Boolean).length === 0) ? (
                 <div className="h-full flex items-center justify-center text-center text-slate-400 font-semibold text-[10px] leading-relaxed">
                   Bắt đầu cuộc trao đổi về sự cố của bạn. Nhập @ai vào khung tin nhắn để được bot tư vấn pháp lý nhanh.
                 </div>
               ) : (
-                comments.map((c) => (
-                  <div key={c.commentId} className={`chat ${c.userId === user.userId ? 'chat-end' : 'chat-start'}`}>
-                    <div className="chat-header text-[9px] font-bold text-slate-400 mb-0.5">
-                      {c.userName} ({c.userRole === 'service-user' ? 'Dân' : 'Cán bộ'})
+                comments.filter(Boolean).map((c, i) => {
+                  const comment = c || {};
+                  const senderName = comment.userName || comment.authorName || 'Người dùng';
+                  const isCurrentUser = comment.userId && user?.userId && comment.userId === user.userId;
+                  const displayRole = comment.userRole === 'service-user' ? 'Dân' : 'Cán bộ';
+
+                  return (
+                    <div key={comment.commentId ?? i} className={`chat ${isCurrentUser ? 'chat-end' : 'chat-start'}`}>
+                      <div className="chat-header text-[9px] font-bold text-slate-400 mb-0.5">
+                        {senderName} ({displayRole})
+                      </div>
+                      <div className={`chat-bubble text-[11px] font-semibold leading-relaxed max-w-[85%] rounded-2xl ${
+                        isCurrentUser
+                          ? 'bg-[#0052CC] text-white shadow-sm'
+                          : 'bg-slate-100 text-slate-800 border border-slate-150 shadow-sm'
+                      }`}>
+                        {comment.content || comment.message || '---'}
+                      </div>
+                      <div className="chat-footer text-[8px] opacity-40 mt-0.5">
+                        {comment.createdAt ? new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---'}
+                      </div>
                     </div>
-                    <div className={`chat-bubble text-[11px] font-semibold leading-relaxed max-w-[85%] rounded-2xl ${
-                      c.userId === user.userId 
-                        ? 'bg-[#0052CC] text-white shadow-sm' 
-                        : 'bg-slate-100 text-slate-800 border border-slate-150 shadow-sm'
-                    }`}>
-                      {c.content}
-                    </div>
-                    <div className="chat-footer text-[8px] opacity-40 mt-0.5">
-                      {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 

@@ -1,5 +1,5 @@
 // src/components/charts/CustomCharts.jsx
-import React from 'react';
+
 
 // 1. Sentiment Donut Chart Component
 export const SentimentDonutChart = ({ positive = 45, neutral = 35, negative = 20 }) => {
@@ -13,7 +13,6 @@ export const SentimentDonutChart = ({ positive = 45, neutral = 35, negative = 20
   const circumference = 2 * Math.PI * radius;
   
   // Calculate stroke offsets
-  const posOffset = circumference;
   const neuDash = (neuPct / 100) * circumference;
   const negDash = (negPct / 100) * circumference;
   const posDash = (posPct / 100) * circumference;

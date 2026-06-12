@@ -1,5 +1,5 @@
 // src/components/layout/Sidebar.jsx
-import React from 'react';
+
 import { NavLink, useNavigate } from 'react-router-dom';
 import * as Lucide from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';

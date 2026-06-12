@@ -1,5 +1,5 @@
 // src/pages/management/CategoryManagement.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { slaApi } from '../../services/api/slaApi';
 import { mockDb } from '../../store/mockStore';

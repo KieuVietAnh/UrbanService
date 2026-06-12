@@ -1,5 +1,5 @@
 // src/components/layout/Header.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
 import * as Lucide from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -12,8 +12,7 @@ export const Header = ({ onMenuToggle }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Fetch notifications
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!user) return;
     try {
       const res = await notificationApi.getNotifications(user.userId);
@@ -22,15 +21,15 @@ export const Header = ({ onMenuToggle }) => {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
+    if (!user) return;
+
     fetchNotifications();
-    
-    // Set up polling simulation for demo real-time notifications
     const interval = setInterval(fetchNotifications, 5000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [fetchNotifications, user]);
 
   const handleMarkAsRead = async (id) => {
     await notificationApi.markAsRead(id);

@@ -1,12 +1,11 @@
 // src/pages/management/SLAConfiguration.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { slaApi } from '../../services/api/slaApi';
 import * as Lucide from 'lucide-react';
 
 export const SLAConfiguration = () => {
   const { user } = useAuth();
-  const [slaConfig, setSlaConfig] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Input states
@@ -20,7 +19,6 @@ export const SLAConfiguration = () => {
     setLoading(true);
     try {
       const res = await slaApi.getSlaConfig();
-      setSlaConfig(res);
       setCriticalHours(res.Critical.hours);
       setHighHours(res.High.hours);
       setMediumHours(res.Medium.hours);

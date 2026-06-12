@@ -1,5 +1,5 @@
 // src/pages/community/HelperWorkspacePage.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ticketApi } from '../../services/api/ticketApi';
 import { mockDb } from '../../store/mockStore';
@@ -15,11 +15,11 @@ export const HelperWorkspacePage = () => {
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
+    if (!user?.operatorId) return;
+
     try {
-      // Fetch tickets assigned to this operator
-      const res = await ticketApi.getTickets({ operatorId: user?.operatorId });
-      // Exclude closed tickets for active workspace
+      const res = await ticketApi.getTickets({ operatorId: user.operatorId });
       const active = res.filter(t => t.status !== 'Closed');
       setTickets(active);
       if (active.length > 0) {
@@ -30,13 +30,13 @@ export const HelperWorkspacePage = () => {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    if (user?.operatorId) {
-      fetchTasks();
-    }
-  }, [user]);
+    if (!user?.operatorId) return;
+
+    fetchTasks();
+  }, [fetchTasks, user?.operatorId]);
 
   const handleUpdateStatus = async (status) => {
     if (!selectedTicket) return;

@@ -1,5 +1,5 @@
 // src/pages/analytics/InteractionHistoryMonitoring.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { mockDb } from '../../store/mockStore';
 import * as Lucide from 'lucide-react';
