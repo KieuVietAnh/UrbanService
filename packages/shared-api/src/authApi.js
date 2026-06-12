@@ -27,6 +27,7 @@ export const authApi = {
   },
 
   logout() {
-    return axiosClient.post('/api/auth/logout');
+    // Backend does not provide a logout endpoint, so just resolve here.
+    return Promise.resolve({ success: true });
   },
 };

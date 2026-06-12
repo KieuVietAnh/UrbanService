@@ -71,6 +71,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const googleLogin = async (idToken) => {
+    setLoading(true);
+    try {
+      const res = await authApi.googleLogin(idToken);
+      const updatedUser = {
+        ...res.user,
+        role: normalizeRole(res.user.role),
+      };
+      setUser(updatedUser);
+      return updatedUser;
+    } catch (err) {
+      console.warn('AuthContext.googleLogin error', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sendOtp = async () => {
     setLoading(true);
     try {
@@ -98,6 +116,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     verifyOtp,
+    googleLogin,
     sendOtp,
     logout,
     isAuthenticated: !!user,

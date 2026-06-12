@@ -1,5 +1,5 @@
 // src/pages/auth/LoginPage.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import * as Lucide from 'lucide-react';
@@ -28,7 +28,7 @@ const getRoleDashboard = (role) => {
 };
 
 export const LoginPage = () => {
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
@@ -70,6 +70,59 @@ export const LoginPage = () => {
     setEmail(autofillEmail);
     setPassword(autofillPassword);
     setError('');
+  };
+
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) return;
+    const scriptId = 'google-identity-script';
+    if (document.getElementById(scriptId)) return;
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.id = scriptId;
+    s.async = true;
+    s.defer = true;
+    document.head.appendChild(s);
+  }, []);
+
+  const handleGoogleSignIn = () => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      setError('Google login not configured.');
+      return;
+    }
+
+    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+      setError('Google SDK not loaded yet. Vui lòng thử lại.');
+      return;
+    }
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async (response) => {
+        try {
+          setLoading(true);
+          const idToken = response?.credential;
+          if (!idToken) {
+            setError('Google login failed to return credential.');
+            return;
+          }
+          const user = await googleLogin(idToken);
+          if (!user?.isVerified) {
+            navigate('/verify-email');
+            return;
+          }
+          const redirect = searchParams.get('redirect') || getRoleDashboard(user.role);
+          navigate(redirect);
+        } catch (err) {
+          setError(err.message || 'Google đăng nhập thất bại.');
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+
+    window.google.accounts.id.prompt();
   };
 
   return (
@@ -160,6 +213,7 @@ export const LoginPage = () => {
         {/* OAuth Buttons */}
         <button 
           type="button"
+          onClick={handleGoogleSignIn}
           className="btn btn-outline border-slate-300 hover:bg-slate-50 text-slate-700 w-full rounded-xl text-xs font-bold h-11 min-h-0 flex gap-2 justify-center items-center"
         >
           <img src="https://docs.kodular.io/guides/component-examples/google-sign-in/google.png" alt="Google logo" className="w-4 h-4 object-contain" />
