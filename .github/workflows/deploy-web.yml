@@ -26,6 +26,10 @@ jobs:
     name: Build and deploy React web
     runs-on: ubuntu-latest
 
+    environment:
+      name: production
+      url: http://152.42.177.174
+  
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
