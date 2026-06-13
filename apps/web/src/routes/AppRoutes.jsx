@@ -15,6 +15,7 @@ import { TicketListPage } from '../pages/tickets/TicketListPage';
 import { CreateTicketPage } from '../pages/tickets/CreateTicketPage';
 import { TicketDetailPage } from '../pages/tickets/TicketDetailPage';
 import { CommunityFeedPage } from '../pages/community/CommunityFeedPage';
+import { CommunityFeedbackDetailPage } from '../pages/community/CommunityFeedbackDetailPage';
 import { CommunityMapPage } from '../pages/community/CommunityMapPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
 import { SettingsPage } from '../pages/settings/SettingsPage';
@@ -91,6 +92,11 @@ export const AppRoutes = () => {
       <Route path="/community/feed" element={
           <DashboardLayout>
             <CommunityFeedPage />
+          </DashboardLayout>
+      } />
+      <Route path="/community/feed/:id" element={
+          <DashboardLayout>
+            <CommunityFeedbackDetailPage />
           </DashboardLayout>
       } />
       <Route path="/community/map" element={

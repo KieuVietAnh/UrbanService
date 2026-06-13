@@ -1,6 +1,7 @@
 // src/pages/community/CommunityFeedPage.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ticketApi } from '../../services/api/ticketApi';
 import { toolsApi } from '@urbanmind/shared-api';
 import * as Lucide from 'lucide-react';
 
@@ -9,31 +10,68 @@ export const CommunityFeedPage = () => {
   const [tickets, setTickets] = useState([]);
   const [supportedList, setSupportedList] = useState({});
 
+  // useEffect(() => {
+  //   // Fetch all public tickets (excluding drafted/closed ones or just show all for feed)
+  //   setTickets(toolsApi.getTickets());
+  // }, []);
   useEffect(() => {
-    // Fetch all public tickets (excluding drafted/closed ones or just show all for feed)
-    setTickets(toolsApi.getTickets());
-  }, []);
-
-  const handleSupportToggle = (feedbackId, e) => {
-    e.stopPropagation(); // Stop card click navigation
-    
-    const isSupported = supportedList[feedbackId];
-    setSupportedList(prev => ({ ...prev, [feedbackId]: !isSupported }));
-    
-    // Update count in database
-    const allTickets = toolsApi.getTickets();
-    const ticket = allTickets.find(t => t.feedbackId === feedbackId);
-    if (ticket) {
-      if (!isSupported) {
-        // Mock Upvote
-        ticket.confidenceScore = (ticket.confidenceScore || 0.9) + 0.01; // increase visibility score
-        // Create an audit logs
-        toolsApi.addAudit('anonymous', 'Support Ticket', 'Feedback', feedbackId);
-      }
-      toolsApi.updateTickets(allTickets);
-      setTickets(allTickets);
+  const fetchTickets = async () => {
+    try {
+      const data = await ticketApi.getTickets();
+      setTickets(data);
+    } catch (err) {
+      console.error('Không lấy được danh sách feedback:', err);
     }
   };
+
+  fetchTickets();
+}, []);
+
+  // const handleSupportToggle = (feedbackId, e) => {
+  //   e.stopPropagation(); // Stop card click navigation
+    
+  //   const isSupported = supportedList[feedbackId];
+  //   setSupportedList(prev => ({ ...prev, [feedbackId]: !isSupported }));
+    
+  //   // Update count in database
+  //   const allTickets = toolsApi.getTickets();
+  //   const ticket = allTickets.find(t => t.feedbackId === feedbackId);
+  //   if (ticket) {
+  //     if (!isSupported) {
+  //       // Mock Upvote
+  //       ticket.confidenceScore = (ticket.confidenceScore || 0.9) + 0.01; // increase visibility score
+  //       // Create an audit logs
+  //       toolsApi.addAudit('anonymous', 'Support Ticket', 'Feedback', feedbackId);
+  //     }
+  //     toolsApi.updateTickets(allTickets);
+  //     setTickets(allTickets);
+  //   }
+  // };
+
+  const handleSupportToggle = async (feedbackId, e) => {
+  e.stopPropagation();
+
+  const isSupported = supportedList[feedbackId];
+
+  try {
+    if (isSupported) {
+      await ticketApi.unsupportTicket(feedbackId);
+    } else {
+      await ticketApi.supportTicket(feedbackId);
+    }
+
+    setSupportedList((prev) => ({
+      ...prev,
+      [feedbackId]: !isSupported,
+    }));
+
+    const data = await ticketApi.getTickets();
+    setTickets(data);
+  } catch (err) {
+    console.error('Không thể cập nhật hỗ trợ:', err);
+    alert(err?.response?.data?.message || err?.message || 'Không thể cập nhật hỗ trợ.');
+  }
+};
 
   return (
     <div className="space-y-6">
@@ -47,12 +85,14 @@ export const CommunityFeedPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {tickets.map((t) => {
           const isSupported = !!supportedList[t.feedbackId];
-          const mockUpvoteCount = isSupported ? 25 : 24;
+          // const mockUpvoteCount = isSupported ? 25 : 24;
+          const supportCount = t.supportCount || 0;
+          const displaySupportCount = isSupported ? supportCount + 1 : supportCount;
 
           return (
             <div 
               key={t.feedbackId}
-              onClick={() => navigate(`/tickets/${t.feedbackId}`)}
+              onClick={() => navigate(`/community/feed/${t.feedbackId}`)}
               className="card bg-base-100 border border-base-300 hover:border-primary p-5 rounded-3xl shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-4"
             >
               {/* Image if exists */}
@@ -88,7 +128,7 @@ export const CommunityFeedPage = () => {
                     }`}
                   >
                     <Lucide.Heart size={12} fill={isSupported ? 'currentColor' : 'none'} className={isSupported ? 'scale-110' : ''} />
-                    <span>Hỗ trợ ({mockUpvoteCount})</span>
+                    <span>Hỗ trợ ({displaySupportCount})</span>
                   </button>
                 </div>
               </div>

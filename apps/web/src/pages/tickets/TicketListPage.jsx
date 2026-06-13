@@ -17,6 +17,23 @@ export const TicketListPage = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 5;
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [editForm, setEditForm] = useState({
+    categoryId: '',
+    title: '',
+    description: '',
+    locationText: '',
+    latitude: null,
+    longitude: null,
+    priority: '',
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [editAttachments, setEditAttachments] = useState([]);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [attachmentLoading, setAttachmentLoading] = useState(false);
+  const [attachmentDeleteTarget, setAttachmentDeleteTarget] = useState(null);
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -138,6 +155,315 @@ export const TicketListPage = () => {
     return `UM-2026-00${num}`;
   };
 
+  const openEditModal = async (ticket) => {
+    try {
+      const detailResponse = await ticketApi.getTicketById(ticket.feedbackId);
+
+      const detail =
+        detailResponse?.data ||
+        detailResponse?.item ||
+        detailResponse?.result ||
+        detailResponse ||
+        ticket;
+
+      setEditTarget(detail);
+
+      setEditForm({
+        categoryId: detail.categoryId || ticket.categoryId || '',
+        title: detail.title || ticket.title || '',
+        description: detail.description || ticket.description || '',
+        locationText: detail.locationText || ticket.locationText || '',
+        latitude: detail.latitude ?? ticket.latitude ?? null,
+        longitude: detail.longitude ?? ticket.longitude ?? null,
+        priority: detail.priority || ticket.priority || '',
+      });
+      setEditAttachments(Array.isArray(detail.attachments) ? detail.attachments : []);
+      setSelectedFiles([]);
+    } catch (err) {
+      console.error('Không lấy được chi tiết phản ánh để sửa:', err);
+
+      setEditTarget(ticket);
+      setEditForm({
+        categoryId: ticket.categoryId || '',
+        title: ticket.title || '',
+        description: ticket.description || '',
+        locationText: ticket.locationText || '',
+        latitude: ticket.latitude ?? null,
+        longitude: ticket.longitude ?? null,
+        priority: ticket.priority || '',
+      });
+      setEditAttachments(Array.isArray(ticket.attachments) ? ticket.attachments : []);
+      setSelectedFiles([]);
+    }
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Trình duyệt không hỗ trợ lấy vị trí hiện tại.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+
+        setEditForm((prev) => ({
+          ...prev,
+          latitude,
+          longitude,
+          locationText: `Vị trí hiện tại: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+        }));
+      },
+      () => {
+        alert('Không thể lấy vị trí hiện tại. Vui lòng cho phép quyền vị trí.');
+      }
+    );
+  };
+
+  const getAttachmentId = (file) => {
+    if (!file || typeof file === 'string') return null;
+
+    return (
+      file.attachmentId ||
+      file.id ||
+      file.fileId ||
+      file.feedbackAttachmentId ||
+      null
+    );
+  };
+
+  const getAttachmentUrl = (file) => {
+    if (!file) return '';
+
+    if (typeof file === 'string') return file;
+
+    return (
+      file.fileUrl ||
+      file.url ||
+      file.path ||
+      file.attachmentUrl ||
+      file.displayUrl ||
+      ''
+    );
+  };
+
+  const getAttachmentName = (file, index) => {
+    if (!file) return `Tệp ${index + 1}`;
+
+    if (typeof file === 'string') {
+      return file.split('/').pop() || `Tệp ${index + 1}`;
+    }
+
+    return (
+      file.fileName ||
+      file.name ||
+      file.originalFileName ||
+      `Tệp ${index + 1}`
+    );
+  };
+
+  const isVideoFile = (fileUrl = '') => {
+    const url = fileUrl.toLowerCase();
+
+    return (
+      url.includes('.mp4') ||
+      url.includes('.webm') ||
+      url.includes('.ogg') ||
+      url.includes('.mov') ||
+      url.includes('.m4v')
+    );
+  };
+  const handleUploadAttachments = async () => {
+    if (!editTarget || selectedFiles.length === 0) return;
+
+    try {
+      setAttachmentLoading(true);
+
+      await ticketApi.addAttachments(editTarget.feedbackId, selectedFiles);
+
+      const detailResponse = await ticketApi.getTicketById(editTarget.feedbackId);
+
+      const detail =
+        detailResponse?.data ||
+        detailResponse?.item ||
+        detailResponse?.result ||
+        detailResponse;
+
+      setEditAttachments(Array.isArray(detail?.attachments) ? detail.attachments : []);
+      setSelectedFiles([]);
+    } catch (err) {
+      console.error('Không thể thêm tệp đính kèm:', err);
+      alert(
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể thêm tệp đính kèm.'
+      );
+    } finally {
+      setAttachmentLoading(false);
+    }
+  };
+
+  // const handleDeleteAttachment = async (file) => {
+  //   if (!editTarget) return;
+
+  //   const attachmentId = getAttachmentId(file);
+
+  //   if (!attachmentId) {
+  //     alert('Không tìm thấy attachmentId để xóa file này.');
+  //     return;
+  //   }
+
+  //   try {
+  //     setAttachmentLoading(true);
+
+  //     await ticketApi.deleteAttachment(editTarget.feedbackId, attachmentId);
+
+  //     setEditAttachments((prev) =>
+  //       prev.filter((item) => getAttachmentId(item) !== attachmentId)
+  //     );
+  //   } catch (err) {
+  //     console.error('Không thể xóa tệp đính kèm:', err);
+  //     alert(
+  //       err?.response?.data?.message ||
+  //       err?.message ||
+  //       'Không thể xóa tệp đính kèm.'
+  //     );
+  //   } finally {
+  //     setAttachmentLoading(false);
+  //   }
+  // };
+  const handleDeleteAttachment = async () => {
+    if (!editTarget || !attachmentDeleteTarget) return;
+
+    const attachmentId = getAttachmentId(attachmentDeleteTarget);
+
+    if (!attachmentId) {
+      alert('Không tìm thấy attachmentId để xóa file này.');
+      return;
+    }
+
+    try {
+      setAttachmentLoading(true);
+
+      await ticketApi.deleteAttachment(editTarget.feedbackId, attachmentId);
+
+      setEditAttachments((prev) =>
+        prev.filter((item) => getAttachmentId(item) !== attachmentId)
+      );
+
+      setAttachmentDeleteTarget(null);
+    } catch (err) {
+      console.error('Không thể xóa tệp đính kèm:', err);
+      alert(
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể xóa tệp đính kèm.'
+      );
+    } finally {
+      setAttachmentLoading(false);
+    }
+  };
+
+  const handleUpdateTicket = async (e) => {
+    e.preventDefault();
+
+    if (!editTarget) return;
+
+    if (!editForm.title.trim()) {
+      alert('Vui lòng nhập tiêu đề phản ánh.');
+      return;
+    }
+
+    if (!editForm.description.trim()) {
+      alert('Vui lòng nhập mô tả phản ánh.');
+      return;
+    }
+
+    try {
+      setEditLoading(true);
+
+      const payload = {
+        title: editForm.title.trim(),
+        description: editForm.description.trim(),
+        locationText: editForm.locationText.trim(),
+      };
+
+      if (editForm.categoryId !== '') {
+        payload.categoryId = Number(editForm.categoryId);
+      }
+
+      if (editForm.latitude !== null && editForm.latitude !== '') {
+        payload.latitude = Number(editForm.latitude);
+      }
+
+      if (editForm.longitude !== null && editForm.longitude !== '') {
+        payload.longitude = Number(editForm.longitude);
+      }
+
+      if (editForm.priority !== '') {
+        payload.priority = editForm.priority;
+      }
+
+      const updatedResponse = await ticketApi.updateTicket(editTarget.feedbackId, payload);
+
+      const updatedTicket =
+        updatedResponse?.data ||
+        updatedResponse?.item ||
+        updatedResponse?.result ||
+        updatedResponse ||
+        payload;
+
+      const nextTicket = {
+        ...editTarget,
+        ...payload,
+        ...updatedTicket,
+      };
+
+      setTickets((prev) =>
+        prev.map((t) => (t.feedbackId === editTarget.feedbackId ? nextTicket : t))
+      );
+
+      setAllCitizenTickets((prev) =>
+        prev.map((t) => (t.feedbackId === editTarget.feedbackId ? nextTicket : t))
+      );
+
+      setEditTarget(null);
+    } catch (err) {
+      console.error('Không thể cập nhật phản ánh:', err);
+      alert(
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể cập nhật phản ánh.'
+      );
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeleteTicket = async () => {
+    if (!deleteTarget) return;
+
+    try {
+      setDeleteLoading(true);
+
+      await ticketApi.deleteTicket(deleteTarget.feedbackId);
+
+      setTickets((prev) => prev.filter((t) => t.feedbackId !== deleteTarget.feedbackId));
+      setAllCitizenTickets((prev) => prev.filter((t) => t.feedbackId !== deleteTarget.feedbackId));
+
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error('Không thể xóa phản ánh:', err);
+      alert(
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể xóa phản ánh.'
+      );
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   // Pagination calculations
   const totalItems = tickets.length;
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
@@ -169,11 +495,10 @@ export const TicketListPage = () => {
       {/* 4 Counter Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Tất cả */}
-        <div 
+        <div
           onClick={() => setStatus('')}
-          className={`bg-white border p-4 rounded-2xl shadow-xs space-y-3 cursor-pointer transition-all duration-200 ${
-            status === '' ? 'border-[#0052CC] bg-[#EFF6FF]/40 ring-1 ring-[#0052CC]' : 'border-slate-200 hover:border-slate-350'
-          }`}
+          className={`bg-white border p-4 rounded-2xl shadow-xs space-y-3 cursor-pointer transition-all duration-200 ${status === '' ? 'border-[#0052CC] bg-[#EFF6FF]/40 ring-1 ring-[#0052CC]' : 'border-slate-200 hover:border-slate-350'
+            }`}
         >
           <div className="flex justify-between items-center">
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tất cả phản ánh</span>
@@ -187,11 +512,10 @@ export const TicketListPage = () => {
         </div>
 
         {/* Card 2: Đang xử lý */}
-        <div 
+        <div
           onClick={() => setStatus('InProgress')}
-          className={`bg-white border p-4 rounded-2xl shadow-xs space-y-3 cursor-pointer transition-all duration-200 ${
-            status === 'InProgress' ? 'border-[#0052CC] bg-[#EFF6FF]/40 ring-1 ring-[#0052CC]' : 'border-slate-200 hover:border-slate-350'
-          }`}
+          className={`bg-white border p-4 rounded-2xl shadow-xs space-y-3 cursor-pointer transition-all duration-200 ${status === 'InProgress' ? 'border-[#0052CC] bg-[#EFF6FF]/40 ring-1 ring-[#0052CC]' : 'border-slate-200 hover:border-slate-350'
+            }`}
         >
           <div className="flex justify-between items-center">
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Đang xử lý</span>
@@ -205,11 +529,10 @@ export const TicketListPage = () => {
         </div>
 
         {/* Card 3: Đã xử lý */}
-        <div 
+        <div
           onClick={() => setStatus('Resolved')}
-          className={`bg-white border p-4 rounded-2xl shadow-xs space-y-3 cursor-pointer transition-all duration-200 ${
-            status === 'Resolved' ? 'border-[#0052CC] bg-[#EFF6FF]/40 ring-1 ring-[#0052CC]' : 'border-slate-200 hover:border-slate-350'
-          }`}
+          className={`bg-white border p-4 rounded-2xl shadow-xs space-y-3 cursor-pointer transition-all duration-200 ${status === 'Resolved' ? 'border-[#0052CC] bg-[#EFF6FF]/40 ring-1 ring-[#0052CC]' : 'border-slate-200 hover:border-slate-350'
+            }`}
         >
           <div className="flex justify-between items-center">
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Đã xử lý</span>
@@ -223,7 +546,7 @@ export const TicketListPage = () => {
         </div>
 
         {/* Card 4: Chờ đánh giá */}
-        <div 
+        <div
           onClick={() => setStatus('Resolved')}
           className="bg-white border border-slate-200 p-4 rounded-2xl shadow-xs space-y-3 cursor-pointer hover:border-slate-350 transition-all duration-200"
         >
@@ -247,9 +570,9 @@ export const TicketListPage = () => {
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 pointer-events-none">
               <Lucide.Search size={15} />
             </span>
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm mã phản ánh..." 
+            <input
+              type="text"
+              placeholder="Tìm kiếm mã phản ánh..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input input-bordered w-full pl-9 text-xs rounded-xl h-10 border-slate-200 focus:border-primary focus:outline-none"
@@ -259,8 +582,8 @@ export const TicketListPage = () => {
 
         {/* Category select */}
         <div className="form-control">
-          <select 
-            value={categoryId} 
+          <select
+            value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
             className="select select-bordered text-xs rounded-xl h-10 min-h-0 font-semibold border-slate-200 focus:border-primary focus:outline-none w-full"
           >
@@ -273,8 +596,8 @@ export const TicketListPage = () => {
 
         {/* Status select */}
         <div className="form-control">
-          <select 
-            value={status} 
+          <select
+            value={status}
             onChange={(e) => setStatus(e.target.value)}
             className="select select-bordered text-xs rounded-xl h-10 min-h-0 font-semibold border-slate-200 focus:border-primary focus:outline-none w-full"
           >
@@ -294,9 +617,9 @@ export const TicketListPage = () => {
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 pointer-events-none">
               <Lucide.Calendar size={15} />
             </span>
-            <input 
-              type="text" 
-              placeholder="Chọn khoảng ngày..." 
+            <input
+              type="text"
+              placeholder="Chọn khoảng ngày..."
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
               className="input input-bordered w-full pl-9 text-xs rounded-xl h-10 border-slate-200 focus:border-primary focus:outline-none"
@@ -308,59 +631,52 @@ export const TicketListPage = () => {
       {/* Status Shortcut Pills Row */}
       <div className="flex flex-wrap gap-2 items-center text-xs">
         <span className="font-bold text-slate-400 mr-1">Bộ lọc nhanh:</span>
-        <button 
+        <button
           onClick={() => setStatus('')}
-          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${
-            status === '' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-          }`}
+          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${status === '' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
         >
           Tất cả
         </button>
-        <button 
+        <button
           onClick={() => setStatus('Submitted')}
-          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${
-            status === 'Submitted' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-          }`}
+          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${status === 'Submitted' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
         >
           Đã gửi
         </button>
-        <button 
+        <button
           onClick={() => setStatus('AI Reviewed')}
-          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${
-            status === 'AI Reviewed' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-          }`}
+          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${status === 'AI Reviewed' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
         >
           Đang xem xét
         </button>
-        <button 
+        <button
           onClick={() => setStatus('Assigned')}
-          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${
-            status === 'Assigned' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-          }`}
+          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${status === 'Assigned' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
         >
           Đã phân công
         </button>
-        <button 
+        <button
           onClick={() => setStatus('InProgress')}
-          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${
-            status === 'InProgress' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-          }`}
+          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${status === 'InProgress' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
         >
           Đang xử lý
         </button>
-        <button 
+        <button
           onClick={() => setStatus('Resolved')}
-          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${
-            status === 'Resolved' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-          }`}
+          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${status === 'Resolved' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
         >
           Đã xử lý
         </button>
-        <button 
+        <button
           onClick={() => setStatus('Closed')}
-          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${
-            status === 'Closed' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-          }`}
+          className={`px-3 py-1.5 rounded-full font-bold text-[11px] border transition-colors ${status === 'Closed' ? 'bg-[#0052CC] text-white border-[#0052CC]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
         >
           Đã đóng
         </button>
@@ -426,13 +742,29 @@ export const TicketListPage = () => {
                       {renderStatusDot(t.status)}
                     </td>
                     <td className="text-right py-3.5">
-                      <button
-                        onClick={() => navigate(`/tickets/${t.feedbackId}`)}
-                        className="btn btn-ghost btn-circle btn-xs text-[#0052CC]"
-                        title="Xem chi tiết"
-                      >
-                        <Lucide.Eye size={16} />
-                      </button>
+                      <div className="flex justify-end gap-1">
+                        <button
+                          onClick={() => navigate(`/tickets/${t.feedbackId}`)}
+                          className="btn btn-ghost btn-circle btn-xs text-[#0052CC]"
+                          title="Xem chi tiết"
+                        >
+                          <Lucide.Eye size={16} />
+                        </button>
+                        <button
+                          onClick={() => openEditModal(t)}
+                          className="btn btn-ghost btn-circle btn-xs text-amber-500 hover:bg-amber-50"
+                          title="Sửa phản ánh"
+                        >
+                          <Lucide.Pencil size={16} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(t)}
+                          className="btn btn-ghost btn-circle btn-xs text-red-500 hover:bg-red-50"
+                          title="Xóa phản ánh"
+                        >
+                          <Lucide.Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -448,7 +780,7 @@ export const TicketListPage = () => {
               Hiển thị {startIndex + 1}-{endIndex} của {totalItems} phản ánh
             </div>
             <div className="flex gap-1">
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
                 disabled={currentPage === 1}
                 className="btn btn-xs rounded-lg btn-outline border-slate-200 disabled:opacity-50 text-slate-600"
@@ -459,16 +791,15 @@ export const TicketListPage = () => {
                 <button
                   key={idx}
                   onClick={() => setCurrentPage(idx + 1)}
-                  className={`btn btn-xs rounded-lg w-8 h-8 ${
-                    currentPage === idx + 1 
-                      ? 'bg-[#0052CC] hover:bg-[#0043a4] text-white border-none' 
-                      : 'btn-outline border-slate-200 text-slate-600'
-                  }`}
+                  className={`btn btn-xs rounded-lg w-8 h-8 ${currentPage === idx + 1
+                    ? 'bg-[#0052CC] hover:bg-[#0043a4] text-white border-none'
+                    : 'btn-outline border-slate-200 text-slate-600'
+                    }`}
                 >
                   {idx + 1}
                 </button>
               ))}
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
                 disabled={currentPage === totalPages}
                 className="btn btn-xs rounded-lg btn-outline border-slate-200 disabled:opacity-50 text-slate-600"
@@ -479,6 +810,393 @@ export const TicketListPage = () => {
           </div>
         )}
       </div>
+
+      {/* Delete Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md p-6 space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                <Lucide.Trash2 size={22} />
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="text-lg font-black text-slate-900">
+                  Xóa phản ánh?
+                </h3>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                  Bạn có chắc muốn xóa phản ánh{' '}
+                  <span className="font-bold text-slate-800">
+                    {deleteTarget.title}
+                  </span>
+                  ? Hành động này không thể hoàn tác.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleteLoading}
+                className="btn btn-ghost rounded-xl font-bold"
+              >
+                Hủy
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteTicket}
+                disabled={deleteLoading}
+                className="btn bg-red-500 hover:bg-red-600 text-white border-none rounded-xl font-bold"
+              >
+                {deleteLoading ? (
+                  <span className="loading loading-spinner loading-sm"></span>
+                ) : (
+                  <>
+                    <Lucide.Trash2 size={16} />
+                    Xóa phản ánh
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[88vh] overflow-y-auto p-5 space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-black text-slate-900">
+                  Sửa phản ánh
+                </h3>
+                <p className="text-sm text-slate-500 font-medium">
+                  Cập nhật thông tin phản ánh của bạn.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setEditTarget(null)}
+                disabled={editLoading}
+                className="btn btn-ghost btn-circle btn-sm"
+              >
+                <Lucide.X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateTicket} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="form-control space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600">
+                    Tiêu đề
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.title}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, title: e.target.value }))
+                    }
+                    className="input input-bordered rounded-2xl text-sm h-12"
+                    placeholder="Nhập tiêu đề phản ánh"
+                  />
+                </div>
+
+                <div className="form-control space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600">
+                    Danh mục
+                  </label>
+                  <select
+                    value={editForm.categoryId}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, categoryId: e.target.value }))
+                    }
+                    className="select select-bordered rounded-2xl text-sm h-12"
+                  >
+                    {toolsApi.getCategories().map((c) => (
+                      <option key={c.categoryId} value={c.categoryId}>
+                        {c.categoryName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-control space-y-1.5 w-full">
+                <label className="text-xs font-bold text-slate-600">
+                  Mô tả
+                </label>
+
+                <textarea
+                  rows="7"
+                  value={editForm.description}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, description: e.target.value }))
+                  }
+                  className="textarea textarea-bordered rounded-2xl text-sm w-full min-h-[190px] resize-none leading-relaxed px-4 py-3"
+                  placeholder="Nhập mô tả phản ánh"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="form-control space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600">
+                    Vị trí
+                  </label>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={editForm.locationText}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({ ...prev, locationText: e.target.value }))
+                      }
+                      className="input input-bordered rounded-2xl text-sm h-12 flex-1"
+                      placeholder="Nhập vị trí hoặc địa chỉ"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleUseCurrentLocation}
+                      className="btn btn-outline rounded-2xl h-12 px-4"
+                      title="Lấy vị trí hiện tại"
+                    >
+                      <Lucide.MapPin size={17} />
+                    </button>
+                  </div>
+
+                  {editForm.latitude !== null && editForm.longitude !== null && (
+                    <p className="text-[10px] text-slate-400 font-semibold pl-1">
+                      Tọa độ: {Number(editForm.latitude).toFixed(6)}, {Number(editForm.longitude).toFixed(6)}
+                    </p>
+                  )}
+                </div>
+
+                <div className="form-control space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600">
+                    Mức ưu tiên
+                  </label>
+
+                  <select
+                    value={editForm.priority}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, priority: e.target.value }))
+                    }
+                    className="select select-bordered rounded-2xl text-sm h-12"
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Urgent">Urgent</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-4 pt-2">
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 space-y-4 w-full">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500">
+                      <Lucide.ImagePlus size={18} />
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-sm font-extrabold text-slate-800">
+                        Hình ảnh / video đính kèm
+                      </p>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Thêm hoặc xóa file đính kèm cho phản ánh này.
+                      </p>
+                    </div>
+                  </div>
+
+                  {editAttachments.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {editAttachments.map((file, index) => {
+                        const fileUrl = getAttachmentUrl(file);
+
+                        return (
+                          <div
+                            key={getAttachmentId(file) || fileUrl || index}
+                            className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-3"
+                          >
+                            <div className="w-14 h-14 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                              {fileUrl ? (
+                                isVideoFile(fileUrl) ? (
+                                  <div className="relative w-full h-full bg-black">
+                                    <video
+                                      src={fileUrl}
+                                      muted
+                                      playsInline
+                                      preload="metadata"
+                                      className="w-full h-full object-cover opacity-80"
+                                    />
+
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                      <div className="w-7 h-7 rounded-full bg-white/90 text-slate-900 flex items-center justify-center shadow-sm">
+                                        <Lucide.Play size={14} fill="currentColor" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <img
+                                    src={fileUrl}
+                                    alt={getAttachmentName(file, index)}
+                                    className="w-full h-full object-cover"
+                                  />
+                                )
+                              ) : (
+                                <Lucide.File size={20} className="text-slate-400" />
+                              )}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-700 truncate">
+                                {getAttachmentName(file, index)}
+                              </p>
+                              {fileUrl && (
+                                <a
+                                  href={fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-[#0052CC] font-bold hover:underline"
+                                >
+                                  Xem file
+                                </a>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => setAttachmentDeleteTarget(file)}
+                              disabled={attachmentLoading}
+                              className="btn btn-ghost btn-circle btn-xs text-red-500 hover:bg-red-50"
+                              title="Xóa file"
+                            >
+                              <Lucide.Trash2 size={15} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,video/*"
+                      onChange={(e) => setSelectedFiles(Array.from(e.target.files || []))}
+                      className="file-input file-input-bordered rounded-2xl flex-1 text-sm"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleUploadAttachments}
+                      disabled={attachmentLoading || selectedFiles.length === 0}
+                      className="btn btn-outline rounded-2xl font-bold"
+                    >
+                      {attachmentLoading ? (
+                        <span className="loading loading-spinner loading-sm"></span>
+                      ) : (
+                        <>
+                          <Lucide.Upload size={16} />
+                          Thêm file
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {selectedFiles.length > 0 && (
+                    <p className="text-[10px] text-slate-500 font-semibold">
+                      Đã chọn {selectedFiles.length} file.
+                    </p>
+                  )}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditTarget(null)}
+                    disabled={editLoading}
+                    className="btn btn-ghost rounded-xl font-bold"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editLoading}
+                    className="btn bg-amber-500 hover:bg-amber-600 text-white border-none rounded-xl font-bold"
+                  >
+                    {editLoading ? (
+                      <span className="loading loading-spinner loading-sm"></span>
+                    ) : (
+                      <>
+                        <Lucide.Save size={16} />
+                        Lưu thay đổi
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Attachment Delete Modal */}
+      {attachmentDeleteTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md p-6 space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                <Lucide.Trash2 size={22} />
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="text-lg font-black text-slate-900">
+                  Xóa tệp đính kèm?
+                </h3>
+
+                <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                  Bạn có chắc muốn xóa file{' '}
+                  <span className="font-bold text-slate-800">
+                    {getAttachmentName(attachmentDeleteTarget, 0)}
+                  </span>
+                  ? Hành động này không thể hoàn tác.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setAttachmentDeleteTarget(null)}
+                disabled={attachmentLoading}
+                className="btn btn-ghost rounded-xl font-bold"
+              >
+                Hủy
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteAttachment}
+                disabled={attachmentLoading}
+                className="btn bg-red-500 hover:bg-red-600 text-white border-none rounded-xl font-bold"
+              >
+                {attachmentLoading ? (
+                  <span className="loading loading-spinner loading-sm"></span>
+                ) : (
+                  <>
+                    <Lucide.Trash2 size={16} />
+                    Xóa file
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

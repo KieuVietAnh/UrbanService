@@ -24,21 +24,35 @@ export const CreateTicketPage = () => {
   const [longitude, setLongitude] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [submitError, setSubmitError] = useState('');
-  
+
   // AI Simulation States
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [duplicates, setDuplicates] = useState([]);
   const [showDuplicateWarn, setShowDuplicateWarn] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const isVideoFile = (file) => {
+    return file?.type?.startsWith('video/');
+  };
   // File Upload base64 simulation
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files || []);
+
     files.forEach((file) => {
       const reader = new FileReader();
+
       reader.onloadend = () => {
-        setAttachments((prev) => [...prev, { file, preview: reader.result }]);
+        setAttachments((prev) => [
+          ...prev,
+          {
+            file,
+            preview: reader.result,
+            type: file.type,
+            name: file.name,
+          },
+        ]);
       };
+
       reader.readAsDataURL(file);
     });
   };
@@ -46,7 +60,7 @@ export const CreateTicketPage = () => {
   // Trigger AI analysis when moving past step 1
   const handleNextToStep2 = () => {
     if (!title || !description) return;
-    
+
     // Call simulated AI
     const analysis = toolsApi.aiClassify(title, description);
     setAiAnalysis(analysis);
@@ -78,7 +92,7 @@ export const CreateTicketPage = () => {
     }
 
     if (attachments.length === 0) {
-      setSubmitError('Vui lòng tải lên ít nhất một hình ảnh minh chứng trước khi gửi.');
+      setSubmitError('Vui lòng tải lên ít nhất một hình ảnh hoặc video minh chứng trước khi gửi.');
       return;
     }
     if (!latitude || !longitude || !locationText) return;
@@ -108,7 +122,7 @@ export const CreateTicketPage = () => {
 
   return (
     <div className="card w-full bg-white border border-slate-200 shadow-sm p-6 md:p-8 rounded-3xl space-y-6 text-slate-800">
-      
+
       {/* Wizard Steps indicator */}
       <div className="flex items-center justify-center border-b border-slate-100 pb-6">
         <ul className="steps steps-horizontal w-full max-w-xl text-[10px] font-bold text-slate-400">
@@ -131,8 +145,8 @@ export const CreateTicketPage = () => {
             <label className="label py-0">
               <span className="label-text font-bold text-xs text-slate-700">Tiêu đề phản ánh *</span>
             </label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Ví dụ: Hỏng bóng đèn đường trước cửa số 123 Lê Lợi"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -144,7 +158,7 @@ export const CreateTicketPage = () => {
             <label className="label py-0">
               <span className="label-text font-bold text-xs text-slate-700">Mô tả chi tiết *</span>
             </label>
-            <textarea 
+            <textarea
               rows="5"
               placeholder="Mô tả cụ thể sự việc, tình trạng hiện tại, mức độ ảnh hưởng đến giao thông hoặc đời sống cư dân..."
               value={description}
@@ -153,8 +167,8 @@ export const CreateTicketPage = () => {
               required
             ></textarea>
           </div>
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={handleNextToStep2}
             disabled={!title.trim() || !description.trim()}
             className="btn btn-primary w-full rounded-xl font-bold h-11 text-xs gap-1"
@@ -178,7 +192,7 @@ export const CreateTicketPage = () => {
               <Lucide.Sparkles className="text-[#0052CC] animate-pulse" size={18} />
               <span className="font-extrabold text-xs text-[#0052CC] uppercase tracking-wider">Kết Quả Phân Tích Copilot AI</span>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div className="space-y-1">
                 <span className="text-slate-400 font-bold text-[10px] block uppercase tracking-wider">Danh mục đề xuất:</span>
@@ -207,8 +221,8 @@ export const CreateTicketPage = () => {
                   <span className="text-[#0052CC]">{Math.round(aiAnalysis.confidenceScore * 100)}%</span>
                 </div>
                 <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                  <div 
-                    className="bg-[#0052CC] h-1.5 rounded-full transition-all duration-500" 
+                  <div
+                    className="bg-[#0052CC] h-1.5 rounded-full transition-all duration-500"
                     style={{ width: `${Math.round(aiAnalysis.confidenceScore * 100)}%` }}
                   ></div>
                 </div>
@@ -227,7 +241,7 @@ export const CreateTicketPage = () => {
               <label className="label py-0">
                 <span className="label-text font-bold text-xs text-slate-700">Chọn lại Danh mục</span>
               </label>
-              <select 
+              <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(Number(e.target.value))}
                 className="select select-bordered text-xs font-bold rounded-xl border-slate-200 focus:outline-none"
@@ -241,7 +255,7 @@ export const CreateTicketPage = () => {
               <label className="label py-0">
                 <span className="label-text font-bold text-xs text-slate-700">Mức độ khẩn cấp</span>
               </label>
-              <select 
+              <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
                 className="select select-bordered text-xs font-bold rounded-xl border-slate-200 focus:outline-none"
@@ -316,7 +330,7 @@ export const CreateTicketPage = () => {
                       {duplicates.map((dup, i) => (
                         <div key={i} className="flex justify-between items-center text-[10px] py-1 border-b border-slate-100 last:border-b-0">
                           <span className="font-semibold text-slate-700 truncate w-40">{dup.title}</span>
-                          <button 
+                          <button
                             type="button"
                             onClick={() => navigate(`/tickets/${dup.feedbackId}`)}
                             className="text-[#0052CC] hover:underline font-bold text-[9px]"
@@ -327,15 +341,15 @@ export const CreateTicketPage = () => {
                       ))}
                     </div>
                     <div className="flex gap-2">
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => navigate('/tickets')}
                         className="btn btn-xs bg-red-600 hover:bg-red-700 border-none text-white rounded-lg flex-1 font-bold text-[9px] h-7"
                       >
                         Theo dõi sự cố đã có
                       </button>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setShowDuplicateWarn(false)}
                         className="btn btn-xs btn-outline border-red-300 text-red-700 hover:bg-red-50 rounded-lg flex-1 text-[9px] h-7"
                       >
@@ -350,9 +364,9 @@ export const CreateTicketPage = () => {
                 <button type="button" onClick={() => setStep(2)} className="btn btn-outline border-slate-200 flex-1 rounded-xl text-xs h-11 text-slate-600">
                   Quay Lại
                 </button>
-                <button 
-                  type="button" 
-                  onClick={() => setStep(4)} 
+                <button
+                  type="button"
+                  onClick={() => setStep(4)}
                   disabled={!latitude}
                   className="btn btn-primary flex-1 rounded-xl font-bold text-xs h-11"
                 >
@@ -374,10 +388,10 @@ export const CreateTicketPage = () => {
 
           {/* Drag & Drop uploader mockup */}
           <div className="border-2 border-dashed border-slate-200 rounded-3xl p-8 text-center space-y-4 bg-slate-50/50 hover:border-[#0052CC] hover:bg-slate-50 transition-all cursor-pointer relative">
-            <input 
-              type="file" 
-              multiple 
-              accept="image/*"
+            <input
+              type="file"
+              multiple
+              accept="image/*,video/*"
               onChange={handleFileUpload}
               className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
             />
@@ -385,26 +399,50 @@ export const CreateTicketPage = () => {
               <Lucide.UploadCloud size={24} />
             </div>
             <div className="space-y-1 text-xs">
-              <span className="font-extrabold text-[#0052CC] block">Kéo thả ảnh hoặc click để tải lên</span>
-              <p className="text-slate-400 font-semibold">Hỗ trợ định dạng JPG, PNG dung lượng tối đa 10MB</p>
+              <span className="font-extrabold text-[#0052CC] block">
+                Kéo thả ảnh/video hoặc click để tải lên
+              </span>
+              <p className="text-slate-400 font-semibold">
+                Hỗ trợ JPG, PNG, MP4, WEBM dung lượng tối đa 10MB
+              </p>
             </div>
           </div>
 
           {/* Preview uploaded images */}
           {attachments.length > 0 && (
             <div className="grid grid-cols-3 gap-3">
-              {attachments.map((attachment, idx) => (
-                <div key={idx} className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-200 group">
-                  <img src={attachment.preview} alt="Evidence" className="w-full h-full object-cover" />
-                  <button 
-                    type="button"
-                    onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                    className="absolute top-1.5 right-1.5 p-1 bg-black/60 hover:bg-black text-white rounded-full transition-colors"
+              {attachments.map((attachment, idx) => {
+                const isVideo = isVideoFile(attachment.file);
+
+                return (
+                  <div
+                    key={idx}
+                    className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-200 group bg-slate-100"
                   >
-                    <Lucide.Trash size={12} />
-                  </button>
-                </div>
-              ))}
+                    {isVideo ? (
+                      <video
+                        src={attachment.preview}
+                        controls
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={attachment.preview}
+                        alt="Evidence"
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                      className="absolute top-1.5 right-1.5 p-1 bg-black/60 hover:bg-black text-white rounded-full transition-colors"
+                    >
+                      <Lucide.Trash size={12} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -423,9 +461,9 @@ export const CreateTicketPage = () => {
             <button type="button" onClick={() => setStep(3)} className="btn btn-outline border-slate-200 flex-1 rounded-xl text-xs h-11 text-slate-600">
               Quay Lại
             </button>
-            <button 
-              type="button" 
-              onClick={handleSubmit} 
+            <button
+              type="button"
+              onClick={handleSubmit}
               disabled={loading || attachments.length === 0}
               className="btn btn-primary flex-1 rounded-xl font-bold text-xs h-11"
             >
@@ -436,7 +474,7 @@ export const CreateTicketPage = () => {
             <div className="text-sm text-red-600 font-semibold text-center">{submitError}</div>
           )}
           {attachments.length === 0 && (
-            <p className="text-[10px] text-red-500 font-semibold text-center">Bạn cần tải lên ít nhất một ảnh minh chứng để gửi phản ánh.</p>
+            <p className="text-[10px] text-red-500 font-semibold text-center">Bạn cần tải lên ít nhất một ảnh hoặc video minh chứng để gửi phản ánh.</p>
           )}
         </div>
       )}
@@ -453,15 +491,15 @@ export const CreateTicketPage = () => {
               Cảm ơn bạn đã phản ánh ý kiến xây dựng cảnh quan đô thị. Hồ sơ sự cố đã được tạo và gửi đến Ban điều hành Tiếp nhận. Tiến trình xử lý sẽ được cập nhật liên tục qua thông báo.
             </p>
           </div>
-          
+
           <div className="flex flex-col gap-2 pt-4">
-            <button 
+            <button
               onClick={() => navigate('/tickets')}
               className="btn btn-primary rounded-xl font-bold text-xs h-11"
             >
               Xem danh sách phản ánh của tôi
             </button>
-            <button 
+            <button
               onClick={() => {
                 setTitle('');
                 setDescription('');

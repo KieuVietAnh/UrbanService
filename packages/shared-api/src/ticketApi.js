@@ -31,17 +31,44 @@ export const ticketApi = {
   getTicketById(feedbackId, options = {}) {
     return (async () => {
       const res = await axiosClient.get(getTicketPath(feedbackId, options.role));
+
       try {
         if (res && Array.isArray(res.attachments)) {
           res.attachments = res.attachments.map((a) => {
             if (!a) return a;
-            if (typeof a === 'string') return a;
-            return a.fileUrl || a.url || a.path || (a.attachmentId ? `/api/attachments/${a.attachmentId}` : (a.id ? `/api/attachments/${a.id}` : a));
+
+            if (typeof a === 'string') {
+              return {
+                fileUrl: a,
+                url: a,
+              };
+            }
+
+            return {
+              ...a,
+              attachmentId:
+                a.attachmentId ||
+                a.attachmentID ||
+                a.feedbackAttachmentId ||
+                a.feedbackAttachmentID ||
+                a.fileId ||
+                a.fileID ||
+                a.id ||
+                null,
+              fileUrl:
+                a.fileUrl ||
+                a.url ||
+                a.path ||
+                a.attachmentUrl ||
+                a.displayUrl ||
+                '',
+            };
           });
         }
       } catch (e) {
         console.warn('Failed to normalize attachments', e);
       }
+
       return res;
     })();
   },
@@ -92,6 +119,46 @@ export const ticketApi = {
       reporterName,
       ...ticketData,
     });
+  },
+
+  updateTicket(feedbackId, ticketData, options = {}) {
+    return axiosClient.put(getTicketPath(feedbackId, options.role), ticketData);
+  },
+
+  deleteTicket(feedbackId, options = {}) {
+    return axiosClient.delete(getTicketPath(feedbackId, options.role));
+  },
+
+  addAttachments(feedbackId, files = [], options = {}) {
+    const formData = new FormData();
+
+    Array.from(files).forEach((file) => {
+      formData.append('Files', file, file.name);
+    });
+
+    return axiosClient.post(
+      `${getTicketPath(feedbackId, options.role)}/attachments`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+  },
+
+  deleteAttachment(feedbackId, attachmentId, options = {}) {
+    return axiosClient.delete(
+      `${getTicketPath(feedbackId, options.role)}/attachments/${attachmentId}`
+    );
+  },
+
+  supportTicket(feedbackId, options = {}) {
+    return axiosClient.post(`${getTicketPath(feedbackId, options.role)}/support`);
+  },
+
+  unsupportTicket(feedbackId, options = {}) {
+    return axiosClient.delete(`${getTicketPath(feedbackId, options.role)}/support`);
   },
 
   getComments(feedbackId, options = {}) {

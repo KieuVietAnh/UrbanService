@@ -47,7 +47,17 @@ export const TicketDetailPage = () => {
     const num = fbId.split('-').pop();
     return `UM-2026-00${num}`;
   };
+  const isVideoFile = (fileUrl = '') => {
+    const url = fileUrl.toLowerCase();
 
+    return (
+      url.includes('.mp4') ||
+      url.includes('.webm') ||
+      url.includes('.ogg') ||
+      url.includes('.mov') ||
+      url.includes('.m4v')
+    );
+  };
   // attachment URL helper provided by the hook: getAttachmentUrl
 
   if (loading) {
@@ -140,16 +150,14 @@ export const TicketDetailPage = () => {
           {steps.map((st, idx) => (
             <>
               {idx > 0 && (
-                <div className={`h-0.5 flex-1 mx-2 rounded-full transition-colors duration-300 ${
-                  currentStep >= idx ? 'bg-[#0052CC]' : 'bg-slate-200'
-                }`}></div>
+                <div className={`h-0.5 flex-1 mx-2 rounded-full transition-colors duration-300 ${currentStep >= idx ? 'bg-[#0052CC]' : 'bg-slate-200'
+                  }`}></div>
               )}
               <div className="flex flex-col items-center text-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all duration-300 ${
-                  currentStep >= idx 
-                    ? 'bg-[#0052CC] text-white shadow-md shadow-[#0052CC]/20 ring-4 ring-[#0052CC]/10' 
-                    : 'bg-slate-100 text-slate-400 border border-slate-200'
-                }`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all duration-300 ${currentStep >= idx
+                  ? 'bg-[#0052CC] text-white shadow-md shadow-[#0052CC]/20 ring-4 ring-[#0052CC]/10'
+                  : 'bg-slate-100 text-slate-400 border border-slate-200'
+                  }`}>
                   {idx + 1}
                 </div>
                 <span className="text-[10px] font-black mt-2 text-slate-700">{st.title}</span>
@@ -162,14 +170,14 @@ export const TicketDetailPage = () => {
 
       {/* Grid Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           {/* Main Description */}
           <div className="card bg-white border border-slate-200 p-6 rounded-3xl shadow-sm space-y-5">
             <h4 className="font-extrabold text-sm border-b border-slate-100 pb-2 text-slate-900">Thông Tin Phản Ánh</h4>
-            
+
             <div className="space-y-1">
               <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Mô tả của người dân:</span>
               <p className="text-xs font-semibold text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-150 italic">
@@ -179,10 +187,10 @@ export const TicketDetailPage = () => {
 
             {/* Attachments section */}
             <div className="space-y-2 pt-2">
-              <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">Hình ảnh đính kèm</span>
+              <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider"> Hình ảnh / video đính kèm</span>
               {attachments.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {attachments.map((file, i) => {
+                  {/* {attachments.map((file, i) => {
                     const fileUrl = getAttachmentUrl(file);
                     return (
                       <a
@@ -194,6 +202,33 @@ export const TicketDetailPage = () => {
                       >
                         <img src={fileUrl} alt={`Attachment ${i + 1}`} className="w-full h-full object-cover hover:scale-102 transition-transform" />
                       </a>
+                    );
+                  })} */}
+                  {attachments.map((file, i) => {
+                    const fileUrl = getAttachmentUrl(file);
+                    const isVideo = isVideoFile(fileUrl);
+
+                    return (
+                      <div
+                        key={i}
+                        className="rounded-2xl overflow-hidden border border-slate-200 aspect-video bg-slate-50 shadow-sm"
+                      >
+                        {isVideo ? (
+                          <video
+                            src={fileUrl}
+                            controls
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={fileUrl}
+                              alt={`Attachment ${i + 1}`}
+                              className="w-full h-full object-cover hover:scale-105 transition-transform"
+                            />
+                          </a>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -243,7 +278,7 @@ export const TicketDetailPage = () => {
 
         {/* Right Column */}
         <div className="space-y-6">
-          
+
           {/* Rating Form block (Flow 4: CSAT review) */}
           {ticket.status === 'Resolved' && user?.role === 'service-user' && (
             <div className="card bg-white border border-[#0052CC]/30 shadow-md p-6 rounded-3xl space-y-4 ring-2 ring-[#0052CC]/5">
@@ -263,13 +298,13 @@ export const TicketDetailPage = () => {
                   <div className="flex flex-col items-center gap-1.5 mt-2">
                     <div className="rating rating-md flex justify-center gap-1">
                       {[1, 2, 3, 4, 5].map((num) => (
-                        <input 
+                        <input
                           key={num}
-                          type="radio" 
-                          name="rating-1" 
+                          type="radio"
+                          name="rating-1"
                           checked={rating === num}
                           onChange={() => setRating(num)}
-                          className="mask mask-star-2 bg-amber-400 cursor-pointer" 
+                          className="mask mask-star-2 bg-amber-400 cursor-pointer"
                         />
                       ))}
                     </div>
@@ -281,12 +316,12 @@ export const TicketDetailPage = () => {
 
                 <div className="form-control">
                   <label className="label cursor-pointer flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <span className="label-text font-bold text-slate-700">Tôi hài lòng với kết quả này</span> 
-                    <input 
-                      type="checkbox" 
-                      checked={satisfied} 
+                    <span className="label-text font-bold text-slate-700">Tôi hài lòng với kết quả này</span>
+                    <input
+                      type="checkbox"
+                      checked={satisfied}
                       onChange={(e) => setSatisfied(e.target.checked)}
-                      className="checkbox checkbox-primary checkbox-sm rounded-lg" 
+                      className="checkbox checkbox-primary checkbox-sm rounded-lg"
                     />
                   </label>
                 </div>
@@ -295,8 +330,8 @@ export const TicketDetailPage = () => {
                   <label className="label py-0">
                     <span className="label-text font-bold text-slate-700">Bình luận, ý kiến đóng góp</span>
                   </label>
-                  <textarea 
-                    rows="3" 
+                  <textarea
+                    rows="3"
                     placeholder="Để lại ý kiến về thái độ phục vụ, chất lượng hoàn thiện công trình..."
                     value={reviewComment}
                     onChange={(e) => setReviewComment(e.target.value)}
@@ -304,8 +339,8 @@ export const TicketDetailPage = () => {
                   ></textarea>
                 </div>
 
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn btn-primary w-full rounded-xl font-bold text-xs h-10 min-h-0"
                   disabled={ratingLoading}
                 >
@@ -343,11 +378,10 @@ export const TicketDetailPage = () => {
                       <div className="chat-header text-[9px] font-bold text-slate-400 mb-0.5">
                         {senderName} ({displayRole})
                       </div>
-                      <div className={`chat-bubble text-[11px] font-semibold leading-relaxed max-w-[85%] rounded-2xl ${
-                        isCurrentUser
-                          ? 'bg-[#0052CC] text-white shadow-sm'
-                          : 'bg-slate-100 text-slate-800 border border-slate-150 shadow-sm'
-                      }`}>
+                      <div className={`chat-bubble text-[11px] font-semibold leading-relaxed max-w-[85%] rounded-2xl ${isCurrentUser
+                        ? 'bg-[#0052CC] text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-800 border border-slate-150 shadow-sm'
+                        }`}>
                         {comment.content || comment.message || '---'}
                       </div>
                       <div className="chat-footer text-[8px] opacity-40 mt-0.5">
@@ -361,14 +395,14 @@ export const TicketDetailPage = () => {
 
             {/* AI helper hints */}
             <div className="py-2 border-t border-slate-100 flex flex-wrap gap-1">
-              <button 
+              <button
                 type="button"
                 onClick={() => setChatInput('@ai luật vứt rác')}
                 className="badge badge-outline border-slate-200 hover:border-primary text-[9px] py-1.5 cursor-pointer font-bold text-slate-500"
               >
                 @ai Luật rác thải
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setChatInput('@ai tiến độ xử lý')}
                 className="badge badge-outline border-slate-200 hover:border-primary text-[9px] py-1.5 cursor-pointer font-bold text-slate-500"
@@ -379,15 +413,15 @@ export const TicketDetailPage = () => {
 
             {/* Input Form */}
             <form onSubmit={handleSendChat} className="pt-2 border-t border-slate-100 flex gap-2">
-              <input 
-                type="text" 
-                placeholder="Nhập tin nhắn..." 
+              <input
+                type="text"
+                placeholder="Nhập tin nhắn..."
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 className="input input-bordered input-sm flex-1 text-xs rounded-xl border-slate-200 focus:outline-none focus:border-primary"
               />
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn btn-sm bg-[#0052CC] hover:bg-[#0043a4] text-white border-none rounded-xl font-bold text-xs px-3 h-8 min-h-0"
               >
                 Gửi
