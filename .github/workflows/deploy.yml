@@ -35,11 +35,6 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 9.0.x
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -52,17 +47,18 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: Restore backend dependencies
-        working-directory: backend
-        run: dotnet restore UrbanService.sln
-
-      - name: Build backend
-        working-directory: backend
-        run: dotnet build UrbanService.sln --configuration Release --no-restore
-
-      - name: Test backend
-        working-directory: backend
-        run: dotnet test UrbanService.sln --configuration Release --no-build
+      - name: Test backend in .NET SDK container
+        shell: bash
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp \
+            --env DOTNET_CLI_HOME=/tmp/dotnet \
+            --env NUGET_PACKAGES=/tmp/nuget/packages \
+            --volume "${GITHUB_WORKSPACE}/backend:/src" \
+            --workdir /src \
+            mcr.microsoft.com/dotnet/sdk:9.0 \
+            dotnet test UrbanService.sln --configuration Release
 
       - name: Install frontend dependencies
         working-directory: frontend
