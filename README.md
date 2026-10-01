@@ -40,19 +40,24 @@ thủ công. Một lần chạy sẽ:
 
 1. Restore, build và test backend.
 2. Install, test, lint và build frontend với biến production.
-3. Build Docker image cho API và đóng gói web static.
-4. Upload cả hai gói lên cùng VPS.
-5. Khởi động lại API, đồng bộ web vào thư mục Nginx và reload Nginx.
-6. Health check API, frontend và chạy Playwright smoke test production.
+3. Build Docker image cho API ngay trên self-hosted runner của VPS.
+4. Khởi động lại API bằng Docker Compose.
+5. Đồng bộ web static vào thư mục được Nginx phục vụ.
+6. Health check API và frontend trong mạng LAN.
 
 Không đặt thêm workflow trong `backend/.github` hoặc `frontend/.github`. Mọi thay
 đổi CI/CD phải được thực hiện tại workflow root.
 
+## GitHub Actions Runner
+
+Workflow chạy trên self-hosted runner Linux x64 đã đăng ký tại VPS
+`192.168.10.109`. Không cần các secret SSH `DO_HOST`, `DO_USER`, `DO_SSH_KEY`
+hoặc `DO_PORT`.
+
+Runner service phải chạy bằng user `vietanh`, có quyền dùng Docker và ghi vào
+`/var/www/urban-service-fe`.
+
 ## GitHub Secrets
-
-VPS:
-
-- `DO_HOST`, `DO_USER`, `DO_SSH_KEY`, `DO_PORT`
 
 Frontend build:
 
@@ -78,8 +83,8 @@ dạng JSON một dòng để tương thích file `.env` của Docker Compose.
 
 ## Thư mục production trên VPS
 
-- API và file deploy: `/var/www/urban-service`
+- API và file deploy: `/home/vietanh/urban-service-deploy`
 - Web static được Nginx phục vụ: `/var/www/urban-service-fe`
 - API health check nội bộ: `http://localhost:8080/health`
-- Frontend production: `https://urbanservice.me`
-
+- Frontend LAN: `http://192.168.10.109`
+- API LAN: `http://192.168.10.109:8080`

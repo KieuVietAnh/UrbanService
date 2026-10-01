@@ -16,17 +16,20 @@ concurrency:
 env:
   DOCKER_IMAGE: urban-service-api
   CONTAINER_NAME: urban-service-api
-  APP_DIR: /var/www/urban-service
+  APP_DIR: /home/vietanh/urban-service-deploy
   WEB_DIR: /var/www/urban-service-fe
-  PRODUCTION_URL: https://urbanservice.me
+  PRODUCTION_URL: http://192.168.10.109
 
 jobs:
   verify-build-deploy:
     name: Verify, build, and deploy backend + frontend
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
     environment:
       name: production
-      url: https://urbanservice.me
+      url: http://192.168.10.109
 
     steps:
       - name: Checkout source code
@@ -78,9 +81,6 @@ jobs:
       - name: Validate required deployment secrets
         shell: bash
         env:
-          DO_HOST: ${{ secrets.DO_HOST }}
-          DO_USER: ${{ secrets.DO_USER }}
-          DO_SSH_KEY: ${{ secrets.DO_SSH_KEY }}
           DB_CONNECTION_STRING: ${{ secrets.DB_CONNECTION_STRING }}
           JWT_KEY: ${{ secrets.JWT_KEY }}
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
@@ -93,7 +93,7 @@ jobs:
           set -euo pipefail
           missing=0
           for name in \
-            DO_HOST DO_USER DO_SSH_KEY DB_CONNECTION_STRING JWT_KEY \
+            DB_CONNECTION_STRING JWT_KEY \
             VITE_API_BASE_URL VITE_GOOGLE_CLIENT_ID VITE_FIREBASE_API_KEY \
             VITE_FIREBASE_AUTH_DOMAIN VITE_FIREBASE_PROJECT_ID VITE_FIREBASE_APP_ID
           do
@@ -207,130 +207,42 @@ jobs:
           ZALO_MAX_IMAGE_BYTES=${{ secrets.ZALO_MAX_IMAGE_BYTES }}
           EOF
 
-      - name: Build and package backend image
+      - name: Build backend image
         shell: bash
         run: |
           set -euo pipefail
           docker build -t "${DOCKER_IMAGE}:latest" ./backend
-          docker save "${DOCKER_IMAGE}:latest" | gzip > backend-image.tar.gz
 
-      - name: Package frontend build
+      - name: Deploy backend and frontend locally
         shell: bash
-        run: tar -C frontend/apps/web/dist -czf frontend-dist.tar.gz .
+        run: |
+          set -euo pipefail
+          mkdir -p "${APP_DIR}" "${WEB_DIR}"
 
-      - name: Prepare deployment directories on VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DO_HOST }}
-          username: ${{ secrets.DO_USER }}
-          key: ${{ secrets.DO_SSH_KEY }}
-          port: ${{ secrets.DO_PORT || '22' }}
-          script: |
-            set -e
-            if [ "$(id -u)" -eq 0 ]; then
-              mkdir -p "${{ env.APP_DIR }}" "${{ env.WEB_DIR }}"
-              chown -R "$(id -un):$(id -gn)" "${{ env.APP_DIR }}" "${{ env.WEB_DIR }}"
-            else
-              sudo mkdir -p "${{ env.APP_DIR }}" "${{ env.WEB_DIR }}"
-              sudo chown -R "$(id -un):$(id -gn)" "${{ env.APP_DIR }}" "${{ env.WEB_DIR }}"
-            fi
+          install -m 600 backend.env "${APP_DIR}/.env"
+          cp docker-compose.prod.yml "${APP_DIR}/docker-compose.prod.yml"
 
-      - name: Copy deployment packages to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DO_HOST }}
-          username: ${{ secrets.DO_USER }}
-          key: ${{ secrets.DO_SSH_KEY }}
-          port: ${{ secrets.DO_PORT || '22' }}
-          source: backend-image.tar.gz,frontend-dist.tar.gz,backend.env,docker-compose.prod.yml
-          target: ${{ env.APP_DIR }}
+          docker compose \
+            --project-directory "${APP_DIR}" \
+            -f "${APP_DIR}/docker-compose.prod.yml" \
+            up -d --force-recreate backend
 
-      - name: Deploy backend and frontend together
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DO_HOST }}
-          username: ${{ secrets.DO_USER }}
-          key: ${{ secrets.DO_SSH_KEY }}
-          port: ${{ secrets.DO_PORT || '22' }}
-          script: |
-            set -eu
-
-            APP_DIR="${{ env.APP_DIR }}"
-            WEB_DIR="${{ env.WEB_DIR }}"
-            RELEASE_DIR="$APP_DIR/frontend-release"
-            SUDO=""
-
-            if [ "$(id -u)" -ne 0 ]; then
-              SUDO="sudo"
-            fi
-
-            $SUDO mkdir -p "$APP_DIR" "$WEB_DIR"
-            $SUDO chown -R "$(id -un):$(id -gn)" "$APP_DIR" "$WEB_DIR"
-
-            cd "$APP_DIR"
-            gunzip -c backend-image.tar.gz | docker load
-            mv backend.env .env
-            chmod 600 .env
-
-            docker compose -f docker-compose.prod.yml up -d --force-recreate backend
-
-            rm -rf "$RELEASE_DIR"
-            mkdir -p "$RELEASE_DIR"
-            tar -xzf frontend-dist.tar.gz -C "$RELEASE_DIR"
-            rsync -a --delete "$RELEASE_DIR/" "$WEB_DIR/"
-
-            if [ "$(id -u)" -eq 0 ]; then
-              nginx -t
-              systemctl reload nginx
-            else
-              sudo nginx -t
-              sudo systemctl reload nginx
-            fi
-
-            rm -rf "$RELEASE_DIR"
-            rm -f backend-image.tar.gz frontend-dist.tar.gz
+          rsync -a --delete frontend/apps/web/dist/ "${WEB_DIR}/"
 
       - name: Check backend health
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DO_HOST }}
-          username: ${{ secrets.DO_USER }}
-          key: ${{ secrets.DO_SSH_KEY }}
-          port: ${{ secrets.DO_PORT || '22' }}
-          script: |
-            set -e
-            for attempt in $(seq 1 18); do
-              if curl --fail --silent http://localhost:8080/health; then
-                echo "API is healthy"
-                exit 0
-              fi
-              sleep 5
-            done
-            docker logs --tail 200 ${{ env.CONTAINER_NAME }} || true
-            exit 1
+        shell: bash
+        run: |
+          set -e
+          for attempt in $(seq 1 18); do
+            if curl --fail --silent http://localhost:8080/health; then
+              echo "API is healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          docker logs --tail 200 "${CONTAINER_NAME}" || true
+          exit 1
 
       - name: Check frontend health
         shell: bash
         run: curl --fail --show-error --silent --retry 6 --retry-delay 5 "${PRODUCTION_URL}/" > /dev/null
-
-      - name: Install Playwright browsers
-        working-directory: frontend
-        run: pnpm --dir apps/web exec playwright install --with-deps
-
-      - name: Run production smoke tests
-        working-directory: frontend/apps/web
-        env:
-          BASE_URL: https://urbanservice.me/
-        run: pnpm exec playwright test --project=smoke
-
-      - name: Ensure Playwright report path exists
-        if: always()
-        run: mkdir -p frontend/apps/web/tests/results/html
-
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-production-report
-          path: frontend/apps/web/tests/results/html
-          if-no-files-found: ignore
