@@ -1,0 +1,279 @@
+{
+  "schemaVersion": 2,
+  "evidence": "Isolated fixture-backed Expo web stress tests. Not native Android hardware, keyboard, fontScale or system-bar proof.",
+  "profiles": [
+    {
+      "name": "small",
+      "generatedAt": "2026-09-07T09:20:24.239Z",
+      "fixtureBacked": true,
+      "fullFunctionalFlow": true,
+      "profile": {
+        "name": "small",
+        "label": "Small phone · 360 × 800",
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "nominalFrame": {
+          "width": 360,
+          "height": 800
+        },
+        "reservedBars": {
+          "top": 0,
+          "bottom": 0
+        },
+        "textScale": 1,
+        "evidence": "Synthetic Expo web geometry with isolated API fixtures; not a native Android device test."
+      },
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "screenshots": 35,
+      "requests": 316,
+      "passed": true,
+      "runtimeErrors": [],
+      "geometryChecks": 137,
+      "geometryProblems": 0,
+      "geometryCapabilities": {
+        "horizontalDocumentAndControls": true,
+        "verticallyReachableControls": true,
+        "fixedTabTextLines": true
+      }
+    },
+    {
+      "name": "tiny",
+      "generatedAt": "2026-09-07T09:21:18.343Z",
+      "fixtureBacked": true,
+      "fullFunctionalFlow": true,
+      "profile": {
+        "name": "tiny",
+        "label": "Tiny phone · 320 × 640",
+        "viewport": {
+          "width": 320,
+          "height": 640
+        },
+        "nominalFrame": {
+          "width": 320,
+          "height": 640
+        },
+        "reservedBars": {
+          "top": 0,
+          "bottom": 0
+        },
+        "textScale": 1,
+        "evidence": "Synthetic Expo web geometry with isolated API fixtures; not a native Android device test."
+      },
+      "viewport": {
+        "width": 320,
+        "height": 640
+      },
+      "screenshots": 39,
+      "requests": 316,
+      "passed": true,
+      "runtimeErrors": [],
+      "geometryChecks": 155,
+      "geometryProblems": 0,
+      "geometryCapabilities": {
+        "horizontalDocumentAndControls": true,
+        "verticallyReachableControls": true,
+        "fixedTabTextLines": true
+      }
+    },
+    {
+      "name": "large-text",
+      "generatedAt": "2026-09-07T09:14:49.291Z",
+      "fixtureBacked": true,
+      "fullFunctionalFlow": true,
+      "profile": {
+        "name": "large-text",
+        "label": "Large text · web text × 1.5",
+        "viewport": {
+          "width": 360,
+          "height": 800
+        },
+        "nominalFrame": {
+          "width": 360,
+          "height": 800
+        },
+        "reservedBars": {
+          "top": 0,
+          "bottom": 0
+        },
+        "textScale": 1.5,
+        "evidence": "Synthetic Expo web geometry with isolated API fixtures; not a native Android device test."
+      },
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "screenshots": 40,
+      "requests": 316,
+      "passed": true,
+      "runtimeErrors": [],
+      "geometryChecks": 156,
+      "geometryProblems": 0,
+      "geometryCapabilities": {
+        "horizontalDocumentAndControls": true,
+        "verticallyReachableControls": true,
+        "fixedTabTextLines": true
+      }
+    },
+    {
+      "name": "gesture-frame",
+      "generatedAt": "2026-09-07T09:15:44.859Z",
+      "fixtureBacked": true,
+      "fullFunctionalFlow": true,
+      "profile": {
+        "name": "gesture-frame",
+        "label": "Gesture-like available area",
+        "viewport": {
+          "width": 360,
+          "height": 752
+        },
+        "nominalFrame": {
+          "width": 360,
+          "height": 800
+        },
+        "reservedBars": {
+          "top": 24,
+          "bottom": 24
+        },
+        "textScale": 1,
+        "evidence": "Synthetic Expo web geometry with isolated API fixtures; not a native Android device test."
+      },
+      "viewport": {
+        "width": 360,
+        "height": 752
+      },
+      "screenshots": 35,
+      "requests": 316,
+      "passed": true,
+      "runtimeErrors": [],
+      "geometryChecks": 143,
+      "geometryProblems": 0,
+      "geometryCapabilities": {
+        "horizontalDocumentAndControls": true,
+        "verticallyReachableControls": true,
+        "fixedTabTextLines": true
+      }
+    },
+    {
+      "name": "three-button-frame",
+      "generatedAt": "2026-09-07T09:16:36.807Z",
+      "fixtureBacked": true,
+      "fullFunctionalFlow": true,
+      "profile": {
+        "name": "three-button-frame",
+        "label": "3-button-like available area",
+        "viewport": {
+          "width": 360,
+          "height": 728
+        },
+        "nominalFrame": {
+          "width": 360,
+          "height": 800
+        },
+        "reservedBars": {
+          "top": 24,
+          "bottom": 48
+        },
+        "textScale": 1,
+        "evidence": "Synthetic Expo web geometry with isolated API fixtures; not a native Android device test."
+      },
+      "viewport": {
+        "width": 360,
+        "height": 728
+      },
+      "screenshots": 35,
+      "requests": 316,
+      "passed": true,
+      "runtimeErrors": [],
+      "geometryChecks": 145,
+      "geometryProblems": 0,
+      "geometryCapabilities": {
+        "horizontalDocumentAndControls": true,
+        "verticallyReachableControls": true,
+        "fixedTabTextLines": true
+      }
+    },
+    {
+      "name": "landscape",
+      "generatedAt": "2026-09-07T09:17:30.277Z",
+      "fixtureBacked": true,
+      "fullFunctionalFlow": true,
+      "profile": {
+        "name": "landscape",
+        "label": "Landscape stress · 844 × 390",
+        "viewport": {
+          "width": 844,
+          "height": 390
+        },
+        "nominalFrame": {
+          "width": 844,
+          "height": 390
+        },
+        "reservedBars": {
+          "top": 0,
+          "bottom": 0
+        },
+        "textScale": 1,
+        "evidence": "Synthetic Expo web geometry with isolated API fixtures; not a native Android device test."
+      },
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "screenshots": 42,
+      "requests": 316,
+      "passed": true,
+      "runtimeErrors": [],
+      "geometryChecks": 166,
+      "geometryProblems": 0,
+      "geometryCapabilities": {
+        "horizontalDocumentAndControls": true,
+        "verticallyReachableControls": true,
+        "fixedTabTextLines": true
+      }
+    },
+    {
+      "name": "tablet",
+      "generatedAt": "2026-09-07T09:18:24.647Z",
+      "fixtureBacked": true,
+      "fullFunctionalFlow": true,
+      "profile": {
+        "name": "tablet",
+        "label": "Tablet stress · 800 × 1280",
+        "viewport": {
+          "width": 800,
+          "height": 1280
+        },
+        "nominalFrame": {
+          "width": 800,
+          "height": 1280
+        },
+        "reservedBars": {
+          "top": 0,
+          "bottom": 0
+        },
+        "textScale": 1,
+        "evidence": "Synthetic Expo web geometry with isolated API fixtures; not a native Android device test."
+      },
+      "viewport": {
+        "width": 800,
+        "height": 1280
+      },
+      "screenshots": 19,
+      "requests": 316,
+      "passed": true,
+      "runtimeErrors": [],
+      "geometryChecks": 92,
+      "geometryProblems": 0,
+      "geometryCapabilities": {
+        "horizontalDocumentAndControls": true,
+        "verticallyReachableControls": true,
+        "fixedTabTextLines": true
+      }
+    }
+  ]
+}

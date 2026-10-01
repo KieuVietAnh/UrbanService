@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UrbanMind Staff · Android native evidence</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #101828;
+        background: #edf2f8;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      main { width: min(1480px, calc(100% - 32px)); margin: 0 auto; padding: 56px 0 80px; }
+      header { max-width: 900px; margin-bottom: 32px; }
+      .eyebrow { color: #075fe4; font-size: 13px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
+      h1 { margin: 14px 0 12px; font-size: clamp(30px, 4vw, 52px); letter-spacing: -.04em; }
+      p { margin: 0; color: #526175; font-size: 16px; line-height: 1.65; }
+      .note { margin-top: 18px; padding: 14px 16px; border-left: 3px solid #075fe4; background: #fff; }
+      .evidence-group + .evidence-group { margin-top: 52px; }
+      h2 { margin: 0 0 18px; font-size: clamp(22px, 2.4vw, 32px); letter-spacing: -.025em; }
+      section { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
+      figure { margin: 0; }
+      .phone { overflow: hidden; border: 7px solid #142039; border-radius: 30px; background: #fff; box-shadow: 0 18px 40px rgba(27, 42, 69, .13); }
+      img { display: block; width: 100%; height: auto; }
+      figcaption { padding: 12px 4px 0; font-weight: 750; line-height: 1.4; }
+      small { display: block; margin-top: 4px; color: #66768b; font-weight: 500; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="eyebrow">UrbanMind / Staff mobile</div>
+        <h1>Bằng chứng chạy native trên Android</h1>
+        <p>Ảnh chụp trực tiếp từ APK kiểm định cục bộ trên Pixel 5 emulator, Android 16 / API 36, 1080 × 2340, density 440. Dữ liệu là fixture cô lập.</p>
+        <p class="note">Bộ nghiệm thu này giữ các trạng thái cuối của luồng Staff và các stress case native quan trọng: font hệ thống 200%, cửa sổ hẹp, chat với Gboard, account read-only, minh chứng NeedRework và hai kiểu thanh điều hướng Android. Ảnh dashboard cuối xác nhận năm tab cùng hitbox giãn đều toàn viewport.</p>
+      </header>
+      <div class="evidence-group">
+        <h2>Dashboard và system bars</h2>
+        <section>
+          <figure>
+            <div class="phone"><img src="final-home-gesture.png" alt="Dashboard Staff với điều hướng vuốt Android" /></div>
+            <figcaption>Dashboard · gesture navigation<small>Safe area trên/dưới và tab bar hiển thị trọn vẹn</small></figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="final-home-three-button.png" alt="Dashboard Staff với điều hướng ba nút Android" /></div>
+            <figcaption>Dashboard · điều hướng 3 nút<small>Bottom inset thích ứng, nội dung không bị system bar che</small></figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="final-home-font-200.png" alt="Dashboard Staff với font hệ thống 200 phần trăm" /></div>
+            <figcaption>Font hệ thống 200%<small>Nội dung reflow và cuộn; năm tab tối đa hai dòng, vẫn truy cập đủ</small></figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="final-home-narrow.png" alt="Dashboard Staff trong cửa sổ Android hẹp với điều hướng vuốt" /></div>
+            <figcaption>Cửa sổ hẹp · gesture navigation<small>720 × 1280; năm tab co về đúng viewport và nội dung tiếp tục cuộn dọc</small></figcaption>
+          </figure>
+        </section>
+      </div>
+
+      <div class="evidence-group">
+        <h2>Trao đổi và bàn phím</h2>
+        <section>
+          <figure>
+            <div class="phone"><img src="final-chat.png" alt="Chi tiết trao đổi Report trên Android" /></div>
+            <figcaption>Chi tiết trao đổi<small>Composer cố định, vùng nội dung cuộn và nút quay lại native đều hiển thị đúng</small></figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="final-chat-ime-three-button.png" alt="Composer trao đổi khi Gboard mở trên Android" /></div>
+            <figcaption>Gboard mở · adjustResize<small>Ô đang focus và nút gửi giữ nguyên chiều rộng, nằm trọn phía trên IME</small></figcaption>
+          </figure>
+        </section>
+      </div>
+
+      <div class="evidence-group">
+        <h2>Tài khoản và minh chứng NeedRework</h2>
+        <section>
+          <figure>
+            <div class="phone"><img src="final-account-read-only.png" alt="Tài khoản Staff chỉ đọc theo Swagger" /></div>
+            <figcaption>Tài khoản Staff · read-only<small>Danh tính và phiên đăng nhập; không gửi mutation profile ServiceUser</small></figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="final-needrework-evidence.png" alt="Màn ảnh và PDF minh chứng NeedRework" /></div>
+            <figcaption>Ảnh và PDF<small>Upload vào đúng provider assignment của Incident</small></figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="final-needrework-evidence-existing.png" alt="Minh chứng cũ của Incident NeedRework" /></div>
+            <figcaption>Minh chứng cũ<small>Chỉ NeedRework của Staff hiện tại mới có thao tác xóa toàn bộ</small></figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="final-needrework-clear-confirm-actions.png" alt="Xác nhận hoặc giữ lại minh chứng cũ" /></div>
+            <figcaption>Xác nhận xóa toàn bộ<small>Cảnh báo không hoàn tác; nút xác nhận và giữ lại đều tiếp cận được</small></figcaption>
+          </figure>
+        </section>
+      </div>
+
+      <div class="evidence-group">
+        <h2>Bắt đầu xử lý sự vụ</h2>
+        <section>
+          <figure>
+            <div class="phone"><img src="final-incident-start-action-gesture.png" alt="Nút bắt đầu xử lý trên chi tiết sự vụ được phân công" /></div>
+            <figcaption>Hành động bắt đầu xử lý<small>Chỉ hiện khi Staff được phân công và sự vụ đang ở trạng thái Được giao</small></figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="final-incident-start-confirm-gesture.png" alt="Xác nhận bắt đầu xử lý sự vụ" /></div>
+            <figcaption>Xác nhận chuyển trạng thái<small>Nêu rõ chuyển sang Đang xử lý và không tự gửi kết quả</small></figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="final-incident-start-success-gesture.png" alt="Sự vụ sau khi bắt đầu xử lý thành công" /></div>
+            <figcaption>Bắt đầu xử lý thành công<small>Thời điểm bắt đầu và trạng thái làm việc được cập nhật</small></figcaption>
+          </figure>
+        </section>
+      </div>
+
+      <div class="evidence-group">
+        <h2>SLA theo từng Report</h2>
+        <section>
+          <figure>
+            <div class="phone"><img src="final-report-sla-gesture.png" alt="Các chỉ tiêu SLA riêng của từng Report" /></div>
+            <figcaption>Trạng thái SLA của Report<small>Phân biệt chỉ tiêu phản hồi và hoàn thành xử lý; không suy diễn SLA tổng hợp của sự vụ</small></figcaption>
+          </figure>
+        </section>
+      </div>
+
+      <div class="evidence-group">
+        <h2>Gửi lại kết quả sau NeedRework</h2>
+        <section>
+          <figure>
+            <div class="phone"><img src="final-rework-resolution-form-gesture.png" alt="Biểu mẫu gửi lại kết quả cho sự vụ cần xử lý lại" /></div>
+            <figcaption>Biểu mẫu gửi lại kết quả<small>Giữ lịch sử cũ và hướng dẫn Staff bổ sung nội dung cần thiết</small></figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="final-rework-history-gesture.png" alt="Lịch sử kết quả trước đó của sự vụ cần xử lý lại" /></div>
+            <figcaption>Lịch sử kết quả trước đó<small>Kết quả bị yêu cầu làm lại vẫn có thể tra cứu</small></figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="final-rework-submit-confirm-visible-gesture.png" alt="Xác nhận gửi lại kết quả cho Manager" /></div>
+            <figcaption>Xác nhận gửi lại<small>Staff có thể quay lại chỉnh sửa trước khi gửi Manager</small></figcaption>
+          </figure>
+          <figure>
+            <div class="phone"><img src="final-rework-submit-success-gesture.png" alt="Kết quả gửi lại thành công và sự vụ chuyển sang chờ duyệt" /></div>
+            <figcaption>Gửi lại thành công<small>Màn chuyển sang chỉ đọc và hiển thị cả kết quả mới lẫn lịch sử cũ</small></figcaption>
+          </figure>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

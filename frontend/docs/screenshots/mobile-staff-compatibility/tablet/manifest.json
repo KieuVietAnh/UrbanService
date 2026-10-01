@@ -1,0 +1,97 @@
+[
+  {
+    "file": "01-home-01.png",
+    "title": "Tổng quan công việc cá nhân · phần 1/2",
+    "group": "Tổng quan"
+  },
+  {
+    "file": "01-home-02.png",
+    "title": "Tổng quan công việc cá nhân · phần 2/2",
+    "group": "Tổng quan"
+  },
+  {
+    "file": "05-incident-filters-01.png",
+    "title": "Đầy đủ bộ lọc sự vụ",
+    "group": "Sự vụ"
+  },
+  {
+    "file": "09-incident-overview-01.png",
+    "title": "Chi tiết sự vụ · Tổng quan",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "10-incident-reports-01.png",
+    "title": "Chi tiết sự vụ · Hai Report, liên kết và SLA riêng · phần 1/2",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "10-incident-reports-02.png",
+    "title": "Chi tiết sự vụ · Hai Report, liên kết và SLA riêng · phần 2/2",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "13-incident-timeline-01.png",
+    "title": "Chi tiết sự vụ · Lịch sử",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "20-chat-public.png",
+    "title": "Trao đổi với người dân",
+    "group": "Trao đổi"
+  },
+  {
+    "file": "21-chat-draft-error.png",
+    "title": "Gửi ghi chú lỗi · Giữ nguyên nội dung",
+    "group": "Trạng thái"
+  },
+  {
+    "file": "23-notifications-01.png",
+    "title": "Thông báo công việc",
+    "group": "Thông báo"
+  },
+  {
+    "file": "29-provider-candidates-01.png",
+    "title": "Đơn vị phù hợp với sự vụ",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "34-provider-contacts-01.png",
+    "title": "Lịch sử liên hệ đơn vị · phần 1/3",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "34-provider-contacts-02.png",
+    "title": "Lịch sử liên hệ đơn vị · phần 2/3",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "34-provider-contacts-03.png",
+    "title": "Lịch sử liên hệ đơn vị · phần 3/3",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "39-evidence-uploaded-01.png",
+    "title": "Minh chứng đã tải lên · phần 1/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "39-evidence-uploaded-02.png",
+    "title": "Minh chứng đã tải lên · phần 2/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "40-resolution-form-01.png",
+    "title": "Chuẩn bị gửi kết quả cho Manager",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "43-resolution-history-01.png",
+    "title": "Lịch sử kết quả đã gửi · phần 1/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "43-resolution-history-02.png",
+    "title": "Lịch sử kết quả đã gửi · phần 2/2",
+    "group": "Minh chứng & kết quả"
+  }
+]

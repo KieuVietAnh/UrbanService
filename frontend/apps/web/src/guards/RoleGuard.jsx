@@ -1,0 +1,26 @@
+// src/guards/RoleGuard.jsx
+
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { normalizeRole } from '../utils/roleMap';
+
+export const RoleGuard = ({ children, allowedRoles }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-base-300">
+        <span className="loading loading-ring loading-lg text-primary"></span>
+      </div>
+    );
+  }
+
+  const currentRole = normalizeRole(user?.role);
+  const normalizedAllowedRoles = allowedRoles.map(role => normalizeRole(role));
+
+  if (!normalizedAllowedRoles.includes(currentRole)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};

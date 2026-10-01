@@ -1,0 +1,64 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.Configuration;
+
+namespace UrbanService.DAL.Data;
+
+public class UrbanServiceDbContextFactory : IDesignTimeDbContextFactory<UrbanServiceDbContext>
+{
+    public UrbanServiceDbContext CreateDbContext(string[] args)
+    {
+        // Keep migration scaffolding aligned with the existing model snapshot.
+        // Runtime still enables legacy timestamp behavior in Program.cs for the current schema.
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
+
+        var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+            ?? "Development";
+        var currentDirectory = Directory.GetCurrentDirectory();
+        var appSettingsDirectory = ResolveAppSettingsDirectory(currentDirectory);
+
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(appSettingsDirectory)
+            .AddJsonFile("appsettings.json", optional: true)
+            .AddJsonFile($"appsettings.{environment}.json", optional: true)
+            .Build();
+
+        var connectionString = Environment.GetEnvironmentVariable(
+                "ConnectionStrings__DefaultConnection")
+            ?? configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException(
+                "Missing connection string: ConnectionStrings:DefaultConnection.");
+
+        var optionsBuilder = new DbContextOptionsBuilder<UrbanServiceDbContext>();
+        optionsBuilder.UseNpgsql(connectionString);
+
+        return new UrbanServiceDbContext(optionsBuilder.Options);
+    }
+
+    private static string ResolveAppSettingsDirectory(string startDirectory)
+    {
+        var directory = new DirectoryInfo(startDirectory);
+
+        while (directory != null)
+        {
+            var directAppSettings = Path.Combine(directory.FullName, "appsettings.json");
+            var directEnvironmentSettings = Path.Combine(directory.FullName, $"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development"}.json");
+            if (File.Exists(directAppSettings) || File.Exists(directEnvironmentSettings))
+            {
+                return directory.FullName;
+            }
+
+            var apiDirectory = Path.Combine(directory.FullName, "UrbanService");
+            var apiAppSettings = Path.Combine(apiDirectory, "appsettings.json");
+            var apiEnvironmentSettings = Path.Combine(apiDirectory, $"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development"}.json");
+            if (File.Exists(apiAppSettings) || File.Exists(apiEnvironmentSettings))
+            {
+                return Path.Combine(directory.FullName, "UrbanService");
+            }
+
+            directory = directory.Parent;
+        }
+
+        return startDirectory;
+    }
+}

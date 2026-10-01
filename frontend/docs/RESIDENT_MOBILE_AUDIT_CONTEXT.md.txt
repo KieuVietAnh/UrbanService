@@ -1,0 +1,206 @@
+UrbanMind Resident Mobile Audit Context
+
+SOURCE OF TRUTH
+
+1. Domain
+- Feedback = Report do Resident gửi.
+- Incident = sự vụ thực tế.
+- Một Incident có thể chứa nhiều Feedback.
+- Feedback không bị thay thế bởi Incident.
+
+2. SYSTEMSTAFF
+- Staff migration sang Incident đã gần hoàn tất.
+- Không audit hoặc thay đổi Manager trong task Resident Mobile này.
+- Staff xử lý Incident.
+- Provider / Evidence / Resolution / SLA phía Staff hiện dùng Incident.
+
+3. Resident
+Resident KHÔNG chuyển hoàn toàn sang Incident-centric.
+
+Resident có hai domain với hai mục đích khác nhau:
+
+Feedback
+= "Phản ánh của tôi"
+
+Incident
+= "Sự vụ cộng đồng"
+
+4. Web Resident Source of Truth
+
+Google Docs:
+Report6_Software User Guides
+
+https://docs.google.com/document/d/1tWTmcGiyN8BhyVJPnLDjdUA7ya5S7v8LDZ_qq4Ig5A0/edit?tab=t.0
+
+Resident Web hiện có các workflow:
+
+Workflow 1:
+User Authentication and Account Access
+- Register
+- Phone OTP verification
+- Login
+- Forgot Password
+
+Workflow 2:
+Citizen Feedback Submission and Tracking
+- Create Feedback
+- Title / Description
+- Location
+- Image / Video Evidence
+- Review
+- Submit
+- My Feedback
+- Feedback Detail
+- Processing Progress
+- Final Resolution
+- Rating / Evaluation
+
+Workflow 3:
+Citizen AI Assistant and Private Support Conversation
+- Support Center
+- AI Assistant
+- AI conversation history
+- AI-assisted Feedback creation
+- GPS
+- Image attachment
+- Transfer AI collected data into normal Feedback form
+- Private Staff conversation by Feedback
+- View Feedback from conversation
+
+Workflow 4:
+Community Incident Monitoring
+- Community Feed
+- Public Incident Detail
+- Public Incident Progress
+- Community Map
+- Incident search/filter
+- Area Alerts
+- Follow areas
+
+5. Important Resident architecture
+
+Resident Mobile should retain:
+
+Feedback:
+Resident's own submitted report.
+
+Incident:
+Public/community urban event.
+
+DO NOT merge My Feedback into My Incidents.
+
+Expected conceptual architecture:
+
+Resident Mobile
+├── Authentication
+├── Home
+├── Gửi phản ánh
+├── Phản ánh của tôi
+│   └── Feedback Detail
+│       ├── Submitted information
+│       ├── Public processing status
+│       ├── Final resolution
+│       ├── Rating
+│       └── Private Staff conversation
+├── Community
+│   ├── Community Feed
+│   ├── Community Map
+│   └── Public Incident Detail
+├── Area Alerts
+├── AI Assistant
+└── Profile / Notifications
+
+6. Resident public Incident != Staff Incident Detail
+
+Resident Public Incident may show:
+- title
+- public description
+- category
+- area/location
+- map
+- public status
+- public processing progress
+- public approved resolution/result
+
+Resident must NOT receive internal Staff/Manager information such as:
+- Staff internal workflow
+- Provider Contact Log
+- internal evidence
+- duplicate/matching confidence
+- Manager decision internals
+- other Residents' private Feedback
+- private reporter information
+- SLA management controls
+- internal NeedRework workflow
+
+7. Status presentation
+
+Do not expose internal workflow terminology directly if Resident does not need it.
+
+Preferred public concepts:
+- Đã gửi
+- Đã tiếp nhận
+- Đang xử lý
+- Đang kiểm tra kết quả
+- Hoàn thành
+- Chờ bạn đánh giá
+
+NeedRework and Manager approval mechanics are internal workflow details.
+
+8. Privacy
+
+If:
+FB001 (Resident A)
+FB002 (Resident B)
+FB003 (Resident C)
+→ INC001
+
+Resident A must not automatically receive private information from FB002 / FB003.
+
+9. Mobile principle
+
+Report6 documents WEB Resident.
+
+Do NOT copy Web layouts directly.
+
+Preserve:
+- business workflow
+- domain relationship
+- actions
+- required information
+
+Adapt:
+- navigation
+- mobile screen hierarchy
+- wizard/step flow
+- bottom sheets
+- touch interaction
+- responsive/mobile presentation
+
+10. Current task boundary
+
+AUDIT ONLY Resident Mobile.
+
+DO NOT:
+- modify Manager
+- audit Manager
+- refactor System Staff
+- change backend
+- implement features during audit
+- invent missing APIs
+- use mock data as proof
+
+The purpose of the audit is to determine:
+
+Web Resident workflow
+VS
+current Resident Mobile implementation
+
+and classify each capability:
+
+DONE
+PARTIAL
+MISSING
+LEGACY
+NEEDS_CHANGE
+BLOCKED_BY_BE

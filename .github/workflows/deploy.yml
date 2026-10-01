@@ -1,0 +1,336 @@
+name: CI and Deploy UrbanService Fullstack
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: urbanservice-production
+  cancel-in-progress: true
+
+env:
+  DOCKER_IMAGE: urban-service-api
+  CONTAINER_NAME: urban-service-api
+  APP_DIR: /var/www/urban-service
+  WEB_DIR: /var/www/urban-service-fe
+  PRODUCTION_URL: https://urbanservice.me
+
+jobs:
+  verify-build-deploy:
+    name: Verify, build, and deploy backend + frontend
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://urbanservice.me
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Restore backend dependencies
+        working-directory: backend
+        run: dotnet restore UrbanService.sln
+
+      - name: Build backend
+        working-directory: backend
+        run: dotnet build UrbanService.sln --configuration Release --no-restore
+
+      - name: Test backend
+        working-directory: backend
+        run: dotnet test UrbanService.sln --configuration Release --no-build
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Test frontend behavior
+        working-directory: frontend
+        run: |
+          pnpm test:admin-feedback-delete
+          pnpm test:admin-feedback-delete-api
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: pnpm --dir apps/web lint
+
+      - name: Validate required deployment secrets
+        shell: bash
+        env:
+          DO_HOST: ${{ secrets.DO_HOST }}
+          DO_USER: ${{ secrets.DO_USER }}
+          DO_SSH_KEY: ${{ secrets.DO_SSH_KEY }}
+          DB_CONNECTION_STRING: ${{ secrets.DB_CONNECTION_STRING }}
+          JWT_KEY: ${{ secrets.JWT_KEY }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in \
+            DO_HOST DO_USER DO_SSH_KEY DB_CONNECTION_STRING JWT_KEY \
+            VITE_API_BASE_URL VITE_GOOGLE_CLIENT_ID VITE_FIREBASE_API_KEY \
+            VITE_FIREBASE_AUTH_DOMAIN VITE_FIREBASE_PROJECT_ID VITE_FIREBASE_APP_ID
+          do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing GitHub secret: $name"
+              missing=1
+            fi
+          done
+          test "$missing" -eq 0
+
+      - name: Create frontend production environment
+        working-directory: frontend/apps/web
+        shell: bash
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_API_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+        run: |
+          umask 077
+          {
+            printf 'VITE_API_BASE_URL=%s\n' "$VITE_API_BASE_URL"
+            printf 'VITE_API_URL=%s\n' "$VITE_API_URL"
+            printf 'VITE_GOOGLE_CLIENT_ID=%s\n' "$VITE_GOOGLE_CLIENT_ID"
+            printf 'VITE_FIREBASE_API_KEY=%s\n' "$VITE_FIREBASE_API_KEY"
+            printf 'VITE_FIREBASE_AUTH_DOMAIN=%s\n' "$VITE_FIREBASE_AUTH_DOMAIN"
+            printf 'VITE_FIREBASE_PROJECT_ID=%s\n' "$VITE_FIREBASE_PROJECT_ID"
+            printf 'VITE_FIREBASE_APP_ID=%s\n' "$VITE_FIREBASE_APP_ID"
+          } > .env.production
+
+      - name: Build frontend
+        working-directory: frontend
+        run: pnpm --dir apps/web build
+
+      - name: Verify frontend build output
+        run: test -f frontend/apps/web/dist/index.html
+
+      - name: Create backend production environment
+        shell: bash
+        run: |
+          umask 077
+          cat > backend.env <<'EOF'
+          DB_CONNECTION_STRING=${{ secrets.DB_CONNECTION_STRING }}
+          JWT_KEY=${{ secrets.JWT_KEY }}
+          JWT_ISSUER=${{ secrets.JWT_ISSUER }}
+          JWT_AUDIENCE=${{ secrets.JWT_AUDIENCE }}
+          CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }}
+          BREVO_API_KEY=${{ secrets.BREVO_API_KEY }}
+          BREVO_SENDER_EMAIL=${{ secrets.BREVO_SENDER_EMAIL }}
+          BREVO_SENDER_NAME=${{ secrets.BREVO_SENDER_NAME }}
+          GOOGLE_AUTH_CLIENT_ID=${{ secrets.GOOGLE_AUTH_CLIENT_ID }}
+          CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS }}
+          PAYOS_CLIENT_ID=${{ secrets.PAYOS_CLIENT_ID }}
+          PAYOS_API_KEY=${{ secrets.PAYOS_API_KEY }}
+          PAYOS_CHECKSUM_KEY=${{ secrets.PAYOS_CHECKSUM_KEY }}
+          PAYOS_RETURN_URL=${{ secrets.PAYOS_RETURN_URL }}
+          PAYOS_CANCEL_URL=${{ secrets.PAYOS_CANCEL_URL }}
+          AI_BASE_URL=${{ secrets.AI_BASE_URL }}
+          AI_MODEL=${{ secrets.AI_MODEL }}
+          AI_TIMEOUT_SECONDS=${{ secrets.AI_TIMEOUT_SECONDS }}
+          AI_MAX_IMAGES_PER_FEEDBACK=${{ secrets.AI_MAX_IMAGES_PER_FEEDBACK }}
+          AI_MAX_IMAGE_BYTES=${{ secrets.AI_MAX_IMAGE_BYTES }}
+          AI_REVIEW_FAILURE_RETRY_DELAY_MINUTES=${{ secrets.AI_REVIEW_FAILURE_RETRY_DELAY_MINUTES }}
+          AI_NUM_PREDICT=${{ secrets.AI_NUM_PREDICT }}
+          AI_NUM_CONTEXT=${{ secrets.AI_NUM_CONTEXT }}
+          AI_TEMPERATURE=${{ secrets.AI_TEMPERATURE }}
+          AI_REVIEW_WORKER_ENABLED=${{ vars.AI_REVIEW_WORKER_ENABLED || 'true' }}
+          AI_DUPLICATE_NEARBY_RADIUS_METERS=${{ vars.AI_DUPLICATE_NEARBY_RADIUS_METERS || '200' }}
+          AI_DUPLICATE_MAX_CANDIDATES=${{ vars.AI_DUPLICATE_MAX_CANDIDATES || '10' }}
+          AI_DUPLICATE_LOOKBACK_DAYS=${{ vars.AI_DUPLICATE_LOOKBACK_DAYS || '7' }}
+          OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_MODEL=${{ secrets.OPENROUTER_MODEL }}
+          OPENROUTER_BASE_URL=${{ secrets.OPENROUTER_BASE_URL }}
+          OPENROUTER_HTTP_REFERER=${{ secrets.OPENROUTER_HTTP_REFERER }}
+          OPENROUTER_X_TITLE=${{ secrets.OPENROUTER_X_TITLE }}
+          MESSENGER_PAGE_ACCESS_TOKEN=${{ secrets.MESSENGER_PAGE_ACCESS_TOKEN }}
+          MESSENGER_VERIFY_TOKEN=${{ secrets.MESSENGER_VERIFY_TOKEN }}
+          MESSENGER_APP_SECRET=${{ secrets.MESSENGER_APP_SECRET }}
+          MESSENGER_GRAPH_API_VERSION=v25.0
+          MESSENGER_ACCOUNT_LINK_BASE_URL=${{ secrets.MESSENGER_ACCOUNT_LINK_BASE_URL }}
+          MESSENGER_ACCOUNT_LINK_TOKEN_MINUTES=${{ vars.MESSENGER_ACCOUNT_LINK_TOKEN_MINUTES || '10' }}
+          MESSENGER_ALLOWED_MEDIA_HOST_SUFFIXES=${{ secrets.MESSENGER_ALLOWED_MEDIA_HOST_SUFFIXES }}
+          MESSENGER_MAX_IMAGES_PER_FEEDBACK=${{ secrets.MESSENGER_MAX_IMAGES_PER_FEEDBACK }}
+          MESSENGER_MAX_IMAGE_BYTES=${{ secrets.MESSENGER_MAX_IMAGE_BYTES }}
+          DATABASE_MIGRATE_ON_STARTUP=true
+          FIREBASE_SERVICE_ACCOUNT_JSON=${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          PHONE_OTP_DAILY_LIMIT=${{ vars.PHONE_OTP_DAILY_LIMIT || '5' }}
+          PHONE_OTP_TEST_NUMBERS=${{ secrets.PHONE_OTP_TEST_NUMBERS }}
+          FEEDBACK_DAILY_PER_USER=${{ vars.FEEDBACK_DAILY_PER_USER || '3' }}
+          SLA_MONITORING_ENABLED=${{ secrets.SLA_MONITORING_ENABLED }}
+          SLA_MONITORING_INTERVAL_MINUTES=${{ secrets.SLA_MONITORING_INTERVAL_MINUTES }}
+          SLA_MONITORING_INITIAL_DELAY_SECONDS=${{ secrets.SLA_MONITORING_INITIAL_DELAY_SECONDS }}
+          SLA_MONITORING_WARNING_THRESHOLD_PERCENT=${{ secrets.SLA_MONITORING_WARNING_THRESHOLD_PERCENT }}
+          ZALO_ENABLED=${{ vars.ZALO_ENABLED || 'false' }}
+          ZALO_APP_ID=${{ secrets.ZALO_APP_ID }}
+          ZALO_APP_SECRET_KEY=${{ secrets.ZALO_APP_SECRET_KEY }}
+          ZALO_OA_ID=${{ secrets.ZALO_OA_ID }}
+          ZALO_OA_SECRET_KEY=${{ secrets.ZALO_OA_SECRET_KEY }}
+          ZALO_ACCESS_TOKEN=${{ secrets.ZALO_ACCESS_TOKEN }}
+          ZALO_REFRESH_TOKEN=${{ secrets.ZALO_REFRESH_TOKEN }}
+          ZALO_ACCESS_TOKEN_EXPIRES_AT_UTC=${{ secrets.ZALO_ACCESS_TOKEN_EXPIRES_AT_UTC }}
+          ZALO_TOKEN_ENCRYPTION_KEY=${{ secrets.ZALO_TOKEN_ENCRYPTION_KEY }}
+          ZALO_SUBMISSION_USER_ID=${{ secrets.ZALO_SUBMISSION_USER_ID }}
+          ZALO_ALLOWED_MEDIA_HOST_SUFFIXES=${{ secrets.ZALO_ALLOWED_MEDIA_HOST_SUFFIXES }}
+          ZALO_MAX_IMAGES_PER_FEEDBACK=${{ secrets.ZALO_MAX_IMAGES_PER_FEEDBACK }}
+          ZALO_MAX_IMAGE_BYTES=${{ secrets.ZALO_MAX_IMAGE_BYTES }}
+          EOF
+
+      - name: Build and package backend image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -t "${DOCKER_IMAGE}:latest" ./backend
+          docker save "${DOCKER_IMAGE}:latest" | gzip > backend-image.tar.gz
+
+      - name: Package frontend build
+        shell: bash
+        run: tar -C frontend/apps/web/dist -czf frontend-dist.tar.gz .
+
+      - name: Prepare deployment directories on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          port: ${{ secrets.DO_PORT || '22' }}
+          script: |
+            set -e
+            if [ "$(id -u)" -eq 0 ]; then
+              mkdir -p "${{ env.APP_DIR }}" "${{ env.WEB_DIR }}"
+              chown -R "$(id -un):$(id -gn)" "${{ env.APP_DIR }}" "${{ env.WEB_DIR }}"
+            else
+              sudo mkdir -p "${{ env.APP_DIR }}" "${{ env.WEB_DIR }}"
+              sudo chown -R "$(id -un):$(id -gn)" "${{ env.APP_DIR }}" "${{ env.WEB_DIR }}"
+            fi
+
+      - name: Copy deployment packages to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          port: ${{ secrets.DO_PORT || '22' }}
+          source: backend-image.tar.gz,frontend-dist.tar.gz,backend.env,docker-compose.prod.yml
+          target: ${{ env.APP_DIR }}
+
+      - name: Deploy backend and frontend together
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          port: ${{ secrets.DO_PORT || '22' }}
+          script: |
+            set -eu
+
+            APP_DIR="${{ env.APP_DIR }}"
+            WEB_DIR="${{ env.WEB_DIR }}"
+            RELEASE_DIR="$APP_DIR/frontend-release"
+            SUDO=""
+
+            if [ "$(id -u)" -ne 0 ]; then
+              SUDO="sudo"
+            fi
+
+            $SUDO mkdir -p "$APP_DIR" "$WEB_DIR"
+            $SUDO chown -R "$(id -un):$(id -gn)" "$APP_DIR" "$WEB_DIR"
+
+            cd "$APP_DIR"
+            gunzip -c backend-image.tar.gz | docker load
+            mv backend.env .env
+            chmod 600 .env
+
+            docker compose -f docker-compose.prod.yml up -d --force-recreate backend
+
+            rm -rf "$RELEASE_DIR"
+            mkdir -p "$RELEASE_DIR"
+            tar -xzf frontend-dist.tar.gz -C "$RELEASE_DIR"
+            rsync -a --delete "$RELEASE_DIR/" "$WEB_DIR/"
+
+            if [ "$(id -u)" -eq 0 ]; then
+              nginx -t
+              systemctl reload nginx
+            else
+              sudo nginx -t
+              sudo systemctl reload nginx
+            fi
+
+            rm -rf "$RELEASE_DIR"
+            rm -f backend-image.tar.gz frontend-dist.tar.gz
+
+      - name: Check backend health
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          port: ${{ secrets.DO_PORT || '22' }}
+          script: |
+            set -e
+            for attempt in $(seq 1 18); do
+              if curl --fail --silent http://localhost:8080/health; then
+                echo "API is healthy"
+                exit 0
+              fi
+              sleep 5
+            done
+            docker logs --tail 200 ${{ env.CONTAINER_NAME }} || true
+            exit 1
+
+      - name: Check frontend health
+        shell: bash
+        run: curl --fail --show-error --silent --retry 6 --retry-delay 5 "${PRODUCTION_URL}/" > /dev/null
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: pnpm --dir apps/web exec playwright install --with-deps
+
+      - name: Run production smoke tests
+        working-directory: frontend/apps/web
+        env:
+          BASE_URL: https://urbanservice.me/
+        run: pnpm exec playwright test --project=smoke
+
+      - name: Ensure Playwright report path exists
+        if: always()
+        run: mkdir -p frontend/apps/web/tests/results/html
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-production-report
+          path: frontend/apps/web/tests/results/html
+          if-no-files-found: ignore

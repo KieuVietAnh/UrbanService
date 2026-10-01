@@ -1,0 +1,67 @@
+{
+  "messaging": {
+    "feedbackChat": {
+      "discussion": "Trao đổi",
+      "unableToLoadConversation": "Không thể tải cuộc hội thoại này.",
+      "noConversationYet": "Chưa có trao đổi",
+      "askStaffAboutFeedback": "Bạn có thể hỏi nhân viên hỗ trợ về phản ánh này.",
+      "unableToSendMessage": "Không thể gửi tin nhắn",
+      "writeMessage": "Viết tin nhắn..."
+    },
+    "feedbackChatScreen": {
+      "discussion": "Trao đổi phản ánh"
+    },
+    "messageComposer": {
+      "placeholder": "Viết tin nhắn..."
+    },
+    "messageBubble": {
+      "you": "Bạn",
+      "staff": "Cán bộ"
+    },
+    "selectFeedback": {
+      "title": "Chọn phản ánh",
+      "description": "Để nhân viên hỗ trợ chính xác hơn, hãy chọn phản ánh bạn muốn trao đổi.",
+      "noFeedbackTitle": "Bạn chưa có phản ánh nào",
+      "noFeedbackSubtitle": "Bạn cần tạo phản ánh trước khi trao đổi với nhân viên.",
+      "createFeedback": "Tạo phản ánh",
+      "createdDate": "Ngày tạo",
+      "unableToLoadFeedbacks": "Không thể tải danh sách phản ánh."
+    },
+    "inboxHub": {
+      "aiAssistant": "Trợ lý AI",
+      "aiAssistantSubtitle": "Hỏi về quy trình phản ánh, trạng thái xử lý, hoặc hướng dẫn nhanh về dịch vụ đô thị.",
+      "startConversation": "Bắt đầu cuộc trò chuyện mới",
+      "online": "Trực tuyến",
+      "selectFeedback": "Chọn phản ánh",
+      "noConversationFound": "Chưa có cuộc trao đổi",
+      "selectFeedbackToStart": "Chọn một phản ánh để bắt đầu trao đổi trực tiếp với nhân viên hỗ trợ.",
+      "noHistoryFound": "Chưa có lịch sử. Bắt đầu cuộc hội thoại đầu tiên.",
+      "openAiAssistant": "Mở AI Assistant",
+      "unableToLoadAiHistory": "Không thể tải lịch sử hội thoại AI.",
+      "unableToLoadSupportHistory": "Không thể tải hội thoại hỗ trợ.",
+      "new": "mới"
+    },
+    "aiConversation": {
+      "aiAssistant": "Trợ lý AI",
+      "yourStory": "Câu chuyện của bạn",
+      "you": "Bạn",
+      "aiAssistant": "Trợ lý AI",
+      "sendFailed": "Gửi tin nhắn AI thất bại. Vui lòng thử lại.",
+      "welcome": "Xin chào! Mình là trợ lý AI. Hãy hỏi về phản ánh, trạng thái xử lý hoặc hướng dẫn nhanh.",
+      "unableToLoadConversation": "Không thể tải cuộc hội thoại này.",
+      "defaultError": "Đã xảy ra lỗi."
+    },
+    "inboxConversation": {
+      "conversation": "Hội thoại",
+      "supportInfo": "Thông tin hỗ trợ",
+      "viewExchangeInfo": "Xem nội dung trao đổi gần nhất.",
+      "aiHelper": "Trợ lý AI",
+      "urbanMindAi": "Trợ lý đô thị thông minh",
+      "askAboutFeedback": "Đặt câu hỏi về quy trình phản ánh, trạng thái xử lý hoặc hướng dẫn nhanh.",
+      "supportStaff": "Nhân viên hỗ trợ",
+      "contactDirectly": "Liên hệ trực tiếp với cán bộ xử lý",
+      "getSupportInfo": "Nhận thông tin hỗ trợ theo phản ánh và yêu cầu trợ giúp cụ thể.",
+      "unableToLoadConversation": "Không thể tải nội dung hội thoại."
+    }
+  }
+}

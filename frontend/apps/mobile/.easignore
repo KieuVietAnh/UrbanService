@@ -1,0 +1,72 @@
+# EAS packaging hygiene for apps/mobile
+# This file extends the repo-level .gitignore rules and keeps required Expo app files uploadable.
+
+# Dependencies
+node_modules/
+.history/
+
+# Generated local build and export output
+dist/
+.expo/
+.expo-shared/
+web-build/
+
+# Logs and temporary output
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tmp
+*.temp
+
+# Test and coverage output
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# IDE/editor files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+
+# Local caches
+.cache/
+.turbo/
+
+# Native folders are intentionally excluded because this app is configured with
+# native config in app.config.js and uses Expo prebuild/CNG flow instead of checked-in native builds.
+android/
+ios/
+
+# Keep required Expo and project files uploadable
+!assets/icon.png
+!assets/adaptive-icon.png
+!assets/favicon.png
+!google-services.json
+!app.json
+!app.config.js
+!eas.json
+!package.json
+!tsconfig.json
+!babel.config.js
+!metro.config.js
+!tailwind.config.js
+!global.css
+!app/
+!src/
+!plugins/

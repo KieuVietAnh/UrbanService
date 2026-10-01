@@ -1,0 +1,50 @@
+{
+  "name": "urbanmind-monorepo",
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.34.2",
+  "private": true,
+  "description": "UrbanMind Capstone Project Monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --dir apps/web dev",
+    "dev:web": "pnpm --dir apps/web dev",
+    "build": "pnpm --dir apps/web build",
+    "build:web": "pnpm --dir apps/web build",
+    "lint": "pnpm --dir apps/web lint",
+    "dev:mobile": "pnpm --dir apps/mobile start",
+    "dev:mobile:android": "pnpm --dir apps/mobile android",
+    "dev:proxy": "pnpm --dir dev-proxy start",
+    "test": "node --test packages/shared-utils/src/index.test.js packages/shared-types/src/roleMap.test.js packages/shared-api/src/toolsApi.test.js packages/shared-api/src/messengerAccountLinkApi.test.js apps/web/src/components/public/citizenAiFeedbackDraft.test.js apps/web/src/utils/authRedirect.test.js apps/web/src/utils/notificationNavigation.test.js apps/web/src/hooks/staffIncidentScope.test.js apps/web/src/pages/profile/profileAccess.test.js apps/web/src/pages/staff/staffIncidentFlowNavigation.test.js",
+    "test:admin-feedback-delete": "node --test apps/web/src/services/adminFeedbackDeletion.test.js apps/web/src/services/cache/adminFeedbackDetailCache.test.js apps/web/src/utils/adminFeedbackMetrics.test.js",
+    "test:admin-feedback-delete-api": "node --test --test-name-pattern=deleteFeedback packages/shared-api/src/managementFeedbackApi.test.js",
+    "test:e2e": "pnpm --dir apps/web test:e2e",
+    "test:e2e:ui": "pnpm --dir apps/web test:e2e:ui",
+    "test:e2e:report": "pnpm --dir apps/web test:e2e:report"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "eslint": "^8.43.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "globals": "^17.6.0"
+  },
+  "dependencies": {
+    "lucide-react": "^1.17.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "19.1.0",
+      "react-dom": "19.1.0",
+      "@types/react": "~19.1.10",
+      "@types/react-dom": "~19.1.0",
+      "react-native-worklets": "0.5.1"
+    }
+  }
+}

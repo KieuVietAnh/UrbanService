@@ -1,0 +1,1437 @@
+{
+  "generatedAt": "2026-09-07T09:14:49.291Z",
+  "fixtureBacked": true,
+  "fullFunctionalFlow": true,
+  "profile": {
+    "name": "large-text",
+    "label": "Large text · web text × 1.5",
+    "viewport": {
+      "width": 360,
+      "height": 800
+    },
+    "nominalFrame": {
+      "width": 360,
+      "height": 800
+    },
+    "reservedBars": {
+      "top": 0,
+      "bottom": 0
+    },
+    "textScale": 1.5,
+    "evidence": "Synthetic Expo web geometry with isolated API fixtures; not a native Android device test."
+  },
+  "viewport": {
+    "width": 360,
+    "height": 800
+  },
+  "screenshots": 40,
+  "requests": 316,
+  "geometryChecks": [
+    {
+      "screen": "01-home-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 11,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "01-home-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 9,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "01-home-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 10,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "02-incidents-waiting.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 12,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "03-incidents.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 11,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "04-incidents-page-2-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 11,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "04-incidents-page-2-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 9,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "05-incident-filters-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 21,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "05-incident-filters-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 22,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "05-incident-filters-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 17,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "06-incidents-empty.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 11,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "07-incidents-loading.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 10,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "08-incidents-error.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 11,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "09-incident-overview-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "09-incident-overview-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "09-incident-overview-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "09-incident-overview-04.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "09-start-confirm-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "09-start-confirm-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "09-start-confirm-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "09-start-conflict-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "09-start-conflict-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "09-start-conflict-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "09-started-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "09-started-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "09-started-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "10-incident-reports-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "10-incident-reports-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "10-incident-reports-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "10-incident-reports-04.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "10-incident-reports-05.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "10-incident-reports-06.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "11-report-primary-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "11-report-primary-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "11-report-primary-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "11-report-primary-04.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "12-report-context-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "12-report-context-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "12-report-context-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "13-incident-timeline-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "13-incident-timeline-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "13-incident-timeline-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "14-incident-rework-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "14-incident-rework-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "14-incident-rework-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "15-incident-reports-empty.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "16-incident-timeline-empty.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "17-incident-forbidden.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "18-report-lookup.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 10,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "19-conversations.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 11,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "20-chat-public.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "21-chat-draft-error.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "22-chat-internal.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "23-notifications-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 6,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "23-notifications-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "24-notifications-empty.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "29-provider-candidates-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "29-provider-candidates-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "29-provider-candidates-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "30-provider-confirm-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "30-provider-confirm-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "30-provider-confirm-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "31-provider-conflict-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "31-provider-conflict-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "32-provider-assigned-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "32-provider-assigned-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "32-provider-assigned-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 7,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "32-provider-assigned-04.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "33-contact-retry-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "33-contact-retry-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 6,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "33-contact-retry-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "34-provider-contacts-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "34-provider-contacts-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "34-provider-contacts-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 8,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "34-provider-contacts-04.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "35-provider-progress-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "35-provider-progress-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "35-provider-progress-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 8,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "35-provider-progress-04.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "36-evidence-empty-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 7,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "36-evidence-empty-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 7,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "36-evidence-empty-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "37-evidence-selected-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 7,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "37-evidence-selected-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 8,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "37-evidence-selected-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "38-evidence-retry-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "38-evidence-retry-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "38-evidence-retry-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "39-evidence-uploaded-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "39-evidence-uploaded-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "39-evidence-uploaded-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "39-evidence-pdf-selected-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 7,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "39-evidence-pdf-selected-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 6,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "39-evidence-pdf-selected-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "39-evidence-pdf-uploaded-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "39-evidence-pdf-uploaded-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 8,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "39-evidence-pdf-uploaded-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "39-evidence-pdf-uploaded-04.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "40-resolution-form-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 6,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "40-resolution-form-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 6,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "40-resolution-form-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "41-resolution-confirm-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 6,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "41-resolution-confirm-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 7,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "41-resolution-confirm-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 6,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "42-resolution-conflict-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "42-resolution-conflict-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 6,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "42-resolution-conflict-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "43-resolution-history-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "43-resolution-history-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "43-resolution-history-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "43-resolution-history-04.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "44-resolution-waiting-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "44-resolution-waiting-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-history-prior-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-history-prior-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-history-prior-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-old-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 7,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-old-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-old-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-clear-confirm-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 7,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-clear-confirm-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-clear-confirm-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-clear-confirm-04.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-clear-error-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-clear-error-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-clear-error-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 6,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-clear-error-04.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-cleared-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-cleared-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 4,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-cleared-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-replacement-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-replacement-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-rework-evidence-replacement-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-resolution-rework-form-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-resolution-rework-form-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 6,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-resolution-rework-form-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-resolution-rework-conflict-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-resolution-rework-conflict-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-resolution-rework-conflict-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-resolution-rework-history-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-resolution-rework-history-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 1,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-resolution-rework-history-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-resolution-rework-history-04.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "47-resolution-rework-history-05.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "45-provider-foreign-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "45-provider-foreign-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "45-provider-foreign-03.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 2,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "46-resolution-foreign-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "46-resolution-foreign-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "48-provider-forbidden-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 3,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "49-resolution-duplicate-guard-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "49-resolution-duplicate-guard-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 5,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "25-account-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 6,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "25-account-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 7,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "28-account-logout-01.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 6,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    },
+    {
+      "screen": "28-account-logout-02.png",
+      "documentWidth": 360,
+      "viewportWidth": 360,
+      "visibleControls": 8,
+      "clippedControls": [],
+      "verticallyClippedControls": [],
+      "clippedTabText": []
+    }
+  ],
+  "passed": true,
+  "runtimeErrors": []
+}

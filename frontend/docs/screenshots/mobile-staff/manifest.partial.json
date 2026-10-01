@@ -1,0 +1,172 @@
+[
+  {
+    "file": "01-home-01.png",
+    "title": "Tổng quan công việc cá nhân · phần 1/3",
+    "group": "Tổng quan"
+  },
+  {
+    "file": "01-home-02.png",
+    "title": "Tổng quan công việc cá nhân · phần 2/3",
+    "group": "Tổng quan"
+  },
+  {
+    "file": "01-home-03.png",
+    "title": "Tổng quan công việc cá nhân · phần 3/3",
+    "group": "Tổng quan"
+  },
+  {
+    "file": "02-incidents-waiting.png",
+    "title": "Sự vụ chờ duyệt từ Dashboard",
+    "group": "Sự vụ"
+  },
+  {
+    "file": "03-incidents.png",
+    "title": "Sự vụ của tôi",
+    "group": "Sự vụ"
+  },
+  {
+    "file": "04-incidents-page-2-01.png",
+    "title": "Phân trang sự vụ · phần 1/2",
+    "group": "Sự vụ"
+  },
+  {
+    "file": "04-incidents-page-2-02.png",
+    "title": "Phân trang sự vụ · phần 2/2",
+    "group": "Sự vụ"
+  },
+  {
+    "file": "05-incident-filters-01.png",
+    "title": "Đầy đủ bộ lọc sự vụ · phần 1/2",
+    "group": "Sự vụ"
+  },
+  {
+    "file": "05-incident-filters-02.png",
+    "title": "Đầy đủ bộ lọc sự vụ · phần 2/2",
+    "group": "Sự vụ"
+  },
+  {
+    "file": "06-incidents-empty.png",
+    "title": "Không có kết quả phù hợp",
+    "group": "Trạng thái"
+  },
+  {
+    "file": "07-incidents-loading.png",
+    "title": "Đang tải sự vụ",
+    "group": "Trạng thái"
+  },
+  {
+    "file": "08-incidents-error.png",
+    "title": "Lỗi tải dữ liệu và thử lại",
+    "group": "Trạng thái"
+  },
+  {
+    "file": "09-incident-overview-01.png",
+    "title": "Chi tiết sự vụ · Tổng quan · phần 1/3",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "09-incident-overview-02.png",
+    "title": "Chi tiết sự vụ · Tổng quan · phần 2/3",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "09-incident-overview-03.png",
+    "title": "Chi tiết sự vụ · Tổng quan · phần 3/3",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "09-start-confirm-01.png",
+    "title": "Xác nhận bắt đầu xử lý sự vụ · phần 1/2",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "09-start-confirm-02.png",
+    "title": "Xác nhận bắt đầu xử lý sự vụ · phần 2/2",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "09-start-conflict-01.png",
+    "title": "Bắt đầu xử lý xung đột · Có thể thử lại · phần 1/2",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "09-start-conflict-02.png",
+    "title": "Bắt đầu xử lý xung đột · Có thể thử lại · phần 2/2",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "09-started-01.png",
+    "title": "Sự vụ đã chuyển sang đang xử lý · phần 1/2",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "09-started-02.png",
+    "title": "Sự vụ đã chuyển sang đang xử lý · phần 2/2",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "10-incident-reports-01.png",
+    "title": "Chi tiết sự vụ · Hai Report và SLA sự vụ · phần 1/4",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "10-incident-reports-02.png",
+    "title": "Chi tiết sự vụ · Hai Report và SLA sự vụ · phần 2/4",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "10-incident-reports-03.png",
+    "title": "Chi tiết sự vụ · Hai Report và SLA sự vụ · phần 3/4",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "10-incident-reports-04.png",
+    "title": "Chi tiết sự vụ · Hai Report và SLA sự vụ · phần 4/4",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "11-report-primary-01.png",
+    "title": "Report đầu tiên · Chỉ đọc · phần 1/3",
+    "group": "Report"
+  },
+  {
+    "file": "11-report-primary-02.png",
+    "title": "Report đầu tiên · Chỉ đọc · phần 2/3",
+    "group": "Report"
+  },
+  {
+    "file": "11-report-primary-03.png",
+    "title": "Report đầu tiên · Chỉ đọc · phần 3/3",
+    "group": "Report"
+  },
+  {
+    "file": "12-report-context-01.png",
+    "title": "Report bổ sung · Giữ đường quay lại sự vụ · phần 1/3",
+    "group": "Report"
+  },
+  {
+    "file": "12-report-context-02.png",
+    "title": "Report bổ sung · Giữ đường quay lại sự vụ · phần 2/3",
+    "group": "Report"
+  },
+  {
+    "file": "12-report-context-03.png",
+    "title": "Report bổ sung · Giữ đường quay lại sự vụ · phần 3/3",
+    "group": "Report"
+  },
+  {
+    "file": "13-incident-timeline-01.png",
+    "title": "Chi tiết sự vụ · Lịch sử · phần 1/2",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "13-incident-timeline-02.png",
+    "title": "Chi tiết sự vụ · Lịch sử · phần 2/2",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "14-incident-rework-01.png",
+    "title": "Sự vụ cần xử lý lại · Hiển thị giới hạn API · phần 1/3",
+    "group": "Chi tiết sự vụ"
+  }
+]

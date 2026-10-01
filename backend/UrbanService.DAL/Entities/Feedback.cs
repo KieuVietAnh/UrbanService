@@ -1,0 +1,107 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace UrbanService.DAL.Entities;
+
+public partial class Feedback
+{
+    public Guid FeedbackId { get; set; }
+
+    public Guid UserId { get; set; }
+
+    public int AreaId { get; set; }
+
+    public int? CategoryId { get; set; }
+
+    public string Title { get; set; } = null!;
+
+    public string Description { get; set; } = null!;
+
+    public string LocationText { get; set; } = null!;
+
+    public decimal? Latitude { get; set; }
+
+    public decimal? Longitude { get; set; }
+
+    public int? LocationAccuracyMeters { get; set; }
+
+    public string? GeoSource { get; set; }
+
+    public string SubmissionChannel { get; set; } = null!;
+
+    public bool IsLocationVerified { get; set; }
+
+    public string? Priority { get; set; }
+
+    public string? Severity { get; set; }
+
+    public string Status { get; set; } = null!;
+
+    public DateTime? DueDate { get; set; }
+
+    public Guid? ApprovedByManagerId { get; set; }
+
+    public DateTime? ApprovedAt { get; set; }
+
+    public bool IsMasterTicket { get; set; }
+
+    public Guid? ParentTicketId { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
+
+    public virtual ICollection<AiConversation> AiConversations { get; set; } = new List<AiConversation>();
+
+    public virtual ICollection<AnalysisResult> AnalysisResults { get; set; } = new List<AnalysisResult>();
+
+    public virtual OperatingArea Area { get; set; } = null!;
+
+    public virtual User? ApprovedByManager { get; set; }
+
+    public virtual UrbanServiceCategory? Category { get; set; }
+
+    public virtual ICollection<FeedbackAttachment> FeedbackAttachments { get; set; } = new List<FeedbackAttachment>();
+
+    public virtual ICollection<FeedbackComment> FeedbackComments { get; set; } = new List<FeedbackComment>();
+
+    public virtual ICollection<FeedbackDuplicateCandidate> FeedbackDuplicateCandidates { get; set; } = new List<FeedbackDuplicateCandidate>();
+
+    public virtual ICollection<FeedbackDuplicateCandidate> PotentialParentDuplicateCandidates { get; set; } = new List<FeedbackDuplicateCandidate>();
+
+    public virtual ICollection<FeedbackResolutionReview> FeedbackResolutionReviews { get; set; } = new List<FeedbackResolutionReview>();
+
+    public virtual ICollection<FeedbackStatusHistory> FeedbackStatusHistories { get; set; } = new List<FeedbackStatusHistory>();
+
+    public virtual ICollection<FeedbackSupport> FeedbackSupports { get; set; } = new List<FeedbackSupport>();
+
+    public virtual ICollection<InteractionMessage> InteractionMessages { get; set; } = new List<InteractionMessage>();
+
+    public virtual ICollection<IncidentEvent> IncidentEvents { get; set; } = new List<IncidentEvent>();
+
+    public virtual ICollection<IncidentComment> IncidentComments { get; set; } = new List<IncidentComment>();
+
+    public virtual ICollection<IncidentReportLink> IncidentReportLinks { get; set; } = new List<IncidentReportLink>();
+
+    public virtual ICollection<IncidentSubscription> IncidentSubscriptions { get; set; } = new List<IncidentSubscription>();
+
+    public virtual ICollection<MessengerFeedbackConversation> MessengerFeedbackConversations { get; set; }
+        = new List<MessengerFeedbackConversation>();
+
+    public virtual ICollection<MessengerFeedbackSubmission> MessengerFeedbackSubmissions { get; set; }
+        = new List<MessengerFeedbackSubmission>();
+
+    public virtual ICollection<ZaloFeedbackConversation> ZaloFeedbackConversations { get; set; }
+        = new List<ZaloFeedbackConversation>();
+
+    public virtual ICollection<ZaloFeedbackSubmission> ZaloFeedbackSubmissions { get; set; }
+        = new List<ZaloFeedbackSubmission>();
+
+    public virtual ICollection<Feedback> InverseParentTicket { get; set; } = new List<Feedback>();
+
+    public virtual Feedback? ParentTicket { get; set; }
+
+    public virtual User User { get; set; } = null!;
+
+
+}

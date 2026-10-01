@@ -1,0 +1,657 @@
+[
+  {
+    "file": "01-home-01.png",
+    "title": "Tổng quan công việc cá nhân · phần 1/3",
+    "group": "Tổng quan"
+  },
+  {
+    "file": "01-home-02.png",
+    "title": "Tổng quan công việc cá nhân · phần 2/3",
+    "group": "Tổng quan"
+  },
+  {
+    "file": "01-home-03.png",
+    "title": "Tổng quan công việc cá nhân · phần 3/3",
+    "group": "Tổng quan"
+  },
+  {
+    "file": "02-incidents-waiting.png",
+    "title": "Sự vụ chờ duyệt từ Dashboard",
+    "group": "Sự vụ"
+  },
+  {
+    "file": "03-incidents.png",
+    "title": "Sự vụ của tôi",
+    "group": "Sự vụ"
+  },
+  {
+    "file": "04-incidents-page-2-01.png",
+    "title": "Phân trang sự vụ · phần 1/2",
+    "group": "Sự vụ"
+  },
+  {
+    "file": "04-incidents-page-2-02.png",
+    "title": "Phân trang sự vụ · phần 2/2",
+    "group": "Sự vụ"
+  },
+  {
+    "file": "05-incident-filters-01.png",
+    "title": "Đầy đủ bộ lọc sự vụ · phần 1/2",
+    "group": "Sự vụ"
+  },
+  {
+    "file": "05-incident-filters-02.png",
+    "title": "Đầy đủ bộ lọc sự vụ · phần 2/2",
+    "group": "Sự vụ"
+  },
+  {
+    "file": "06-incidents-empty.png",
+    "title": "Không có kết quả phù hợp",
+    "group": "Trạng thái"
+  },
+  {
+    "file": "07-incidents-loading.png",
+    "title": "Đang tải sự vụ",
+    "group": "Trạng thái"
+  },
+  {
+    "file": "08-incidents-error.png",
+    "title": "Lỗi tải dữ liệu và thử lại",
+    "group": "Trạng thái"
+  },
+  {
+    "file": "09-incident-overview-01.png",
+    "title": "Chi tiết sự vụ · Tổng quan · phần 1/3",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "09-incident-overview-02.png",
+    "title": "Chi tiết sự vụ · Tổng quan · phần 2/3",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "09-incident-overview-03.png",
+    "title": "Chi tiết sự vụ · Tổng quan · phần 3/3",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "09-start-confirm-01.png",
+    "title": "Xác nhận bắt đầu xử lý sự vụ · phần 1/3",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "09-start-confirm-02.png",
+    "title": "Xác nhận bắt đầu xử lý sự vụ · phần 2/3",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "09-start-confirm-03.png",
+    "title": "Xác nhận bắt đầu xử lý sự vụ · phần 3/3",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "09-start-conflict-01.png",
+    "title": "Bắt đầu xử lý xung đột · Có thể thử lại · phần 1/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "09-start-conflict-02.png",
+    "title": "Bắt đầu xử lý xung đột · Có thể thử lại · phần 2/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "09-start-conflict-03.png",
+    "title": "Bắt đầu xử lý xung đột · Có thể thử lại · phần 3/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "09-started-01.png",
+    "title": "Sự vụ đã chuyển sang đang xử lý · phần 1/3",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "09-started-02.png",
+    "title": "Sự vụ đã chuyển sang đang xử lý · phần 2/3",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "09-started-03.png",
+    "title": "Sự vụ đã chuyển sang đang xử lý · phần 3/3",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "10-incident-reports-01.png",
+    "title": "Chi tiết sự vụ · Hai Report, liên kết và SLA riêng · phần 1/4",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "10-incident-reports-02.png",
+    "title": "Chi tiết sự vụ · Hai Report, liên kết và SLA riêng · phần 2/4",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "10-incident-reports-03.png",
+    "title": "Chi tiết sự vụ · Hai Report, liên kết và SLA riêng · phần 3/4",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "10-incident-reports-04.png",
+    "title": "Chi tiết sự vụ · Hai Report, liên kết và SLA riêng · phần 4/4",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "11-report-primary-01.png",
+    "title": "Report đầu tiên · Chỉ đọc · phần 1/4",
+    "group": "Report"
+  },
+  {
+    "file": "11-report-primary-02.png",
+    "title": "Report đầu tiên · Chỉ đọc · phần 2/4",
+    "group": "Report"
+  },
+  {
+    "file": "11-report-primary-03.png",
+    "title": "Report đầu tiên · Chỉ đọc · phần 3/4",
+    "group": "Report"
+  },
+  {
+    "file": "11-report-primary-04.png",
+    "title": "Report đầu tiên · Chỉ đọc · phần 4/4",
+    "group": "Report"
+  },
+  {
+    "file": "12-report-context-01.png",
+    "title": "Report bổ sung · Giữ đường quay lại sự vụ · phần 1/3",
+    "group": "Report"
+  },
+  {
+    "file": "12-report-context-02.png",
+    "title": "Report bổ sung · Giữ đường quay lại sự vụ · phần 2/3",
+    "group": "Report"
+  },
+  {
+    "file": "12-report-context-03.png",
+    "title": "Report bổ sung · Giữ đường quay lại sự vụ · phần 3/3",
+    "group": "Report"
+  },
+  {
+    "file": "13-incident-timeline-01.png",
+    "title": "Chi tiết sự vụ · Lịch sử · phần 1/2",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "13-incident-timeline-02.png",
+    "title": "Chi tiết sự vụ · Lịch sử · phần 2/2",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "14-incident-rework-01.png",
+    "title": "Sự vụ cần xử lý lại · Hiển thị giới hạn API · phần 1/3",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "14-incident-rework-02.png",
+    "title": "Sự vụ cần xử lý lại · Hiển thị giới hạn API · phần 2/3",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "14-incident-rework-03.png",
+    "title": "Sự vụ cần xử lý lại · Hiển thị giới hạn API · phần 3/3",
+    "group": "Chi tiết sự vụ"
+  },
+  {
+    "file": "15-incident-reports-empty.png",
+    "title": "Sự vụ chưa có Report",
+    "group": "Trạng thái"
+  },
+  {
+    "file": "16-incident-timeline-empty.png",
+    "title": "Sự vụ chưa có lịch sử",
+    "group": "Trạng thái"
+  },
+  {
+    "file": "17-incident-forbidden.png",
+    "title": "Hồ sơ ngoài phạm vi truy cập",
+    "group": "Trạng thái"
+  },
+  {
+    "file": "18-report-lookup.png",
+    "title": "Tra cứu Report",
+    "group": "Report"
+  },
+  {
+    "file": "19-conversations.png",
+    "title": "Danh sách trao đổi",
+    "group": "Trao đổi"
+  },
+  {
+    "file": "20-chat-public.png",
+    "title": "Trao đổi với người dân",
+    "group": "Trao đổi"
+  },
+  {
+    "file": "21-chat-draft-error.png",
+    "title": "Gửi ghi chú lỗi · Giữ nguyên nội dung",
+    "group": "Trạng thái"
+  },
+  {
+    "file": "22-chat-internal.png",
+    "title": "Ghi chú nội bộ đã lưu",
+    "group": "Trao đổi"
+  },
+  {
+    "file": "23-notifications-01.png",
+    "title": "Thông báo công việc · phần 1/2",
+    "group": "Thông báo"
+  },
+  {
+    "file": "23-notifications-02.png",
+    "title": "Thông báo công việc · phần 2/2",
+    "group": "Thông báo"
+  },
+  {
+    "file": "24-notifications-empty.png",
+    "title": "Đã đọc tất cả thông báo",
+    "group": "Trạng thái"
+  },
+  {
+    "file": "29-provider-candidates-01.png",
+    "title": "Đơn vị phù hợp với sự vụ · phần 1/2",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "29-provider-candidates-02.png",
+    "title": "Đơn vị phù hợp với sự vụ · phần 2/2",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "30-provider-confirm-01.png",
+    "title": "Xác nhận phân công đơn vị · phần 1/2",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "30-provider-confirm-02.png",
+    "title": "Xác nhận phân công đơn vị · phần 2/2",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "31-provider-conflict-01.png",
+    "title": "Phân công xung đột · Giữ ghi chú · phần 1/2",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "31-provider-conflict-02.png",
+    "title": "Phân công xung đột · Giữ ghi chú · phần 2/2",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "32-provider-assigned-01.png",
+    "title": "Phân công đã lưu theo Incident · phần 1/4",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "32-provider-assigned-02.png",
+    "title": "Phân công đã lưu theo Incident · phần 2/4",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "32-provider-assigned-03.png",
+    "title": "Phân công đã lưu theo Incident · phần 3/4",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "32-provider-assigned-04.png",
+    "title": "Phân công đã lưu theo Incident · phần 4/4",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "33-contact-retry-01.png",
+    "title": "Lỗi liên hệ · Không mất nội dung · phần 1/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "33-contact-retry-02.png",
+    "title": "Lỗi liên hệ · Không mất nội dung · phần 2/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "33-contact-retry-03.png",
+    "title": "Lỗi liên hệ · Không mất nội dung · phần 3/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "34-provider-contacts-01.png",
+    "title": "Lịch sử liên hệ đơn vị · phần 1/4",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "34-provider-contacts-02.png",
+    "title": "Lịch sử liên hệ đơn vị · phần 2/4",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "34-provider-contacts-03.png",
+    "title": "Lịch sử liên hệ đơn vị · phần 3/4",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "34-provider-contacts-04.png",
+    "title": "Lịch sử liên hệ đơn vị · phần 4/4",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "35-provider-progress-01.png",
+    "title": "Cập nhật tiến độ đơn vị · phần 1/4",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "35-provider-progress-02.png",
+    "title": "Cập nhật tiến độ đơn vị · phần 2/4",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "35-provider-progress-03.png",
+    "title": "Cập nhật tiến độ đơn vị · phần 3/4",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "35-provider-progress-04.png",
+    "title": "Cập nhật tiến độ đơn vị · phần 4/4",
+    "group": "Xử lý sự vụ"
+  },
+  {
+    "file": "36-evidence-empty-01.png",
+    "title": "Minh chứng của phân công · phần 1/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "36-evidence-empty-02.png",
+    "title": "Minh chứng của phân công · phần 2/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "37-evidence-selected-01.png",
+    "title": "Ảnh được chọn trước khi tải · phần 1/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "37-evidence-selected-02.png",
+    "title": "Ảnh được chọn trước khi tải · phần 2/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "38-evidence-retry-01.png",
+    "title": "Tải ảnh lỗi · Giữ ảnh và mô tả · phần 1/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "38-evidence-retry-02.png",
+    "title": "Tải ảnh lỗi · Giữ ảnh và mô tả · phần 2/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "38-evidence-retry-03.png",
+    "title": "Tải ảnh lỗi · Giữ ảnh và mô tả · phần 3/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "39-evidence-uploaded-01.png",
+    "title": "Minh chứng đã tải lên · phần 1/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "39-evidence-uploaded-02.png",
+    "title": "Minh chứng đã tải lên · phần 2/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "39-evidence-uploaded-03.png",
+    "title": "Minh chứng đã tải lên · phần 3/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "39-evidence-pdf-selected-01.png",
+    "title": "Tài liệu PDF được chọn · phần 1/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "39-evidence-pdf-selected-02.png",
+    "title": "Tài liệu PDF được chọn · phần 2/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "39-evidence-pdf-selected-03.png",
+    "title": "Tài liệu PDF được chọn · phần 3/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "39-evidence-pdf-uploaded-01.png",
+    "title": "Tài liệu PDF đã tải lên · phần 1/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "39-evidence-pdf-uploaded-02.png",
+    "title": "Tài liệu PDF đã tải lên · phần 2/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "39-evidence-pdf-uploaded-03.png",
+    "title": "Tài liệu PDF đã tải lên · phần 3/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "40-resolution-form-01.png",
+    "title": "Chuẩn bị gửi kết quả cho Manager · phần 1/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "40-resolution-form-02.png",
+    "title": "Chuẩn bị gửi kết quả cho Manager · phần 2/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "41-resolution-confirm-01.png",
+    "title": "Xác nhận gửi kết quả · phần 1/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "41-resolution-confirm-02.png",
+    "title": "Xác nhận gửi kết quả · phần 2/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "42-resolution-conflict-01.png",
+    "title": "Gửi kết quả xung đột · Giữ nội dung · phần 1/2",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "42-resolution-conflict-02.png",
+    "title": "Gửi kết quả xung đột · Giữ nội dung · phần 2/2",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "43-resolution-history-01.png",
+    "title": "Lịch sử kết quả đã gửi · phần 1/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "43-resolution-history-02.png",
+    "title": "Lịch sử kết quả đã gửi · phần 2/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "43-resolution-history-03.png",
+    "title": "Lịch sử kết quả đã gửi · phần 3/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "44-resolution-waiting-01.png",
+    "title": "Kết quả chờ duyệt · Chỉ đọc",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "47-rework-history-prior-01.png",
+    "title": "Xử lý lại · Lịch sử và minh chứng cũ · phần 1/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-rework-history-prior-02.png",
+    "title": "Xử lý lại · Lịch sử và minh chứng cũ · phần 2/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-rework-evidence-old-01.png",
+    "title": "Xử lý lại · Minh chứng cũ hiện hành · phần 1/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-rework-evidence-old-02.png",
+    "title": "Xử lý lại · Minh chứng cũ hiện hành · phần 2/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-rework-evidence-clear-confirm-01.png",
+    "title": "Xử lý lại · Xác nhận xóa toàn bộ minh chứng cũ · phần 1/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-rework-evidence-clear-confirm-02.png",
+    "title": "Xử lý lại · Xác nhận xóa toàn bộ minh chứng cũ · phần 2/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-rework-evidence-clear-confirm-03.png",
+    "title": "Xử lý lại · Xác nhận xóa toàn bộ minh chứng cũ · phần 3/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-rework-evidence-clear-error-01.png",
+    "title": "Xóa minh chứng lỗi · Giữ ảnh và biểu mẫu · phần 1/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "47-rework-evidence-clear-error-02.png",
+    "title": "Xóa minh chứng lỗi · Giữ ảnh và biểu mẫu · phần 2/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "47-rework-evidence-clear-error-03.png",
+    "title": "Xóa minh chứng lỗi · Giữ ảnh và biểu mẫu · phần 3/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "47-rework-evidence-cleared-01.png",
+    "title": "Đã xóa minh chứng cũ · Nội dung cục bộ còn nguyên · phần 1/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-rework-evidence-cleared-02.png",
+    "title": "Đã xóa minh chứng cũ · Nội dung cục bộ còn nguyên · phần 2/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-rework-evidence-cleared-03.png",
+    "title": "Đã xóa minh chứng cũ · Nội dung cục bộ còn nguyên · phần 3/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-rework-evidence-replacement-01.png",
+    "title": "Xử lý lại · Minh chứng mới đã tải · phần 1/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-rework-evidence-replacement-02.png",
+    "title": "Xử lý lại · Minh chứng mới đã tải · phần 2/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-rework-evidence-replacement-03.png",
+    "title": "Xử lý lại · Minh chứng mới đã tải · phần 3/3",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-resolution-rework-form-01.png",
+    "title": "Xử lý lại · Chuẩn bị gửi kết quả mới · phần 1/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-resolution-rework-form-02.png",
+    "title": "Xử lý lại · Chuẩn bị gửi kết quả mới · phần 2/2",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-resolution-rework-conflict-01.png",
+    "title": "Gửi lại xung đột · Giữ nguyên nội dung · phần 1/2",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "47-resolution-rework-conflict-02.png",
+    "title": "Gửi lại xung đột · Giữ nguyên nội dung · phần 2/2",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "47-resolution-rework-history-01.png",
+    "title": "Đã gửi lại · Giữ đủ lịch sử kết quả · phần 1/4",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-resolution-rework-history-02.png",
+    "title": "Đã gửi lại · Giữ đủ lịch sử kết quả · phần 2/4",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-resolution-rework-history-03.png",
+    "title": "Đã gửi lại · Giữ đủ lịch sử kết quả · phần 3/4",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "47-resolution-rework-history-04.png",
+    "title": "Đã gửi lại · Giữ đủ lịch sử kết quả · phần 4/4",
+    "group": "Minh chứng & kết quả"
+  },
+  {
+    "file": "45-provider-foreign-01.png",
+    "title": "Phân công của nhân viên khác · Chỉ đọc · phần 1/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "45-provider-foreign-02.png",
+    "title": "Phân công của nhân viên khác · Chỉ đọc · phần 2/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "45-provider-foreign-03.png",
+    "title": "Phân công của nhân viên khác · Chỉ đọc · phần 3/3",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "46-resolution-foreign-01.png",
+    "title": "Kết quả ngoài phân công · Chỉ đọc",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "48-provider-forbidden-01.png",
+    "title": "API từ chối quyền truy cập phân công",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "49-resolution-duplicate-guard-01.png",
+    "title": "Chống gửi trùng khi trạng thái chưa đồng bộ",
+    "group": "Trạng thái xử lý"
+  },
+  {
+    "file": "25-account-01.png",
+    "title": "Tài khoản Staff · Thông tin phiên chỉ đọc",
+    "group": "Tài khoản"
+  },
+  {
+    "file": "28-account-logout-01.png",
+    "title": "Xác nhận đăng xuất · phần 1/2",
+    "group": "Tài khoản"
+  },
+  {
+    "file": "28-account-logout-02.png",
+    "title": "Xác nhận đăng xuất · phần 2/2",
+    "group": "Tài khoản"
+  }
+]

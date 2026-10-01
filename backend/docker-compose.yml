@@ -1,0 +1,82 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: urban-service-backend
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      Database__MigrateOnStartup: ${DATABASE_MIGRATE_ON_STARTUP:-true}
+      # Nội dung JSON service account Firebase. Khoá riêng nên không commit vào repo.
+      Firebase__ServiceAccountJson: ${FIREBASE_SERVICE_ACCOUNT_JSON}
+      # Trần SMS OTP mỗi ngày cho toàn hệ thống. Mỗi tin là chi phí thật.
+      PhoneOtp__DailyLimit: ${PHONE_OTP_DAILY_LIMIT:-5}
+      # Số test khai trong Firebase Console: không phát SMS thật nên không tính lượt.
+      # Khai ở đây để không phụ thuộc vào file appsettings trong image.
+      PhoneOtp__TestNumbersCsv: ${PHONE_OTP_TEST_NUMBERS:-+84909999999,+84987654321,+84901234567,+84999999999}
+      FeedbackLimits__DailyPerUser: ${FEEDBACK_DAILY_PER_USER:-3}
+      ConnectionStrings__DefaultConnection: ${DEFAULT_CONNECTION}
+      Jwt__Key: ${JWT_KEY}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Cloudinary__CloudName: ${CLOUDINARY_CLOUD_NAME}
+      Cloudinary__ApiKey: ${CLOUDINARY_API_KEY}
+      Cloudinary__ApiSecret: ${CLOUDINARY_API_SECRET}
+      Brevo__ApiKey: ${BREVO_API_KEY}
+      Brevo__SenderEmail: ${BREVO_SENDER_EMAIL}
+      Brevo__SenderName: ${BREVO_SENDER_NAME:-UrbanService}
+      GoogleAuth__ClientId: ${GOOGLE_AUTH_CLIENT_ID}
+      Cors__AllowedOrigins: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      PayOS__ClientId: ${PAYOS_CLIENT_ID}
+      PayOS__ApiKey: ${PAYOS_API_KEY}
+      PayOS__ChecksumKey: ${PAYOS_CHECKSUM_KEY}
+      PayOS__ReturnUrl: ${PAYOS_RETURN_URL}
+      PayOS__CancelUrl: ${PAYOS_CANCEL_URL}
+      AI__BaseUrl: ${AI_BASE_URL}
+      AI__Model: ${AI_MODEL:-qwen2.5vl:3b}
+      AI__TimeoutSeconds: ${AI_TIMEOUT_SECONDS:-600}
+      AI__MaxImagesPerFeedback: ${AI_MAX_IMAGES_PER_FEEDBACK:-0}
+      AI__MaxImageBytes: ${AI_MAX_IMAGE_BYTES:-2097152}
+      AI__ReviewFailureRetryDelayMinutes: ${AI_REVIEW_FAILURE_RETRY_DELAY_MINUTES:-15}
+      AI__NumPredict: ${AI_NUM_PREDICT:-512}
+      AI__NumContext: ${AI_NUM_CONTEXT:-4096}
+      AI__Temperature: ${AI_TEMPERATURE:-0.1}
+      AI__ReviewWorkerEnabled: ${AI_REVIEW_WORKER_ENABLED:-true}
+      AI__DuplicateNearbyRadiusMeters: ${AI_DUPLICATE_NEARBY_RADIUS_METERS:-200}
+      AI__DuplicateMaxCandidates: ${AI_DUPLICATE_MAX_CANDIDATES:-10}
+      AI__DuplicateLookbackDays: ${AI_DUPLICATE_LOOKBACK_DAYS:-7}
+      OpenRouter__ApiKey: ${OPENROUTER_API_KEY}
+      OpenRouter__Model: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
+      OpenRouter__BaseUrl: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      OpenRouter__HttpReferer: ${OPENROUTER_HTTP_REFERER:-https://urban-mind-fe-web.vercel.app}
+      OpenRouter__XTitle: ${OPENROUTER_X_TITLE:-UrbanService}
+      Messenger__PageAccessToken: ${MESSENGER_PAGE_ACCESS_TOKEN}
+      Messenger__VerifyToken: ${MESSENGER_VERIFY_TOKEN}
+      Messenger__AppSecret: ${MESSENGER_APP_SECRET}
+      Messenger__AccountLinkBaseUrl: ${MESSENGER_ACCOUNT_LINK_BASE_URL}
+      Messenger__AccountLinkTokenMinutes: ${MESSENGER_ACCOUNT_LINK_TOKEN_MINUTES:-10}
+      Messenger__GraphApiVersion: ${MESSENGER_GRAPH_API_VERSION:-v25.0}
+      Messenger__AllowedMediaHostSuffixes: ${MESSENGER_ALLOWED_MEDIA_HOST_SUFFIXES:-fbcdn.net,fbsbx.com}
+      Messenger__MaxImagesPerFeedback: ${MESSENGER_MAX_IMAGES_PER_FEEDBACK:-5}
+      Messenger__MaxImageBytes: ${MESSENGER_MAX_IMAGE_BYTES:-5242880}
+      Zalo__AppId: ${ZALO_APP_ID}
+      Zalo__Enabled: ${ZALO_ENABLED:-false}
+      Zalo__AppSecretKey: ${ZALO_APP_SECRET_KEY}
+      Zalo__OaId: ${ZALO_OA_ID}
+      Zalo__OaSecretKey: ${ZALO_OA_SECRET_KEY}
+      Zalo__AccessToken: ${ZALO_ACCESS_TOKEN}
+      Zalo__RefreshToken: ${ZALO_REFRESH_TOKEN}
+      Zalo__AccessTokenExpiresAtUtc: ${ZALO_ACCESS_TOKEN_EXPIRES_AT_UTC}
+      Zalo__TokenEncryptionKey: ${ZALO_TOKEN_ENCRYPTION_KEY}
+      Zalo__SubmissionUserId: ${ZALO_SUBMISSION_USER_ID}
+      Zalo__AllowedMediaHostSuffixes: ${ZALO_ALLOWED_MEDIA_HOST_SUFFIXES:-zdn.vn,zadn.vn,zalo.me,zaloapp.com}
+      Zalo__MaxImagesPerFeedback: ${ZALO_MAX_IMAGES_PER_FEEDBACK:-5}
+      Zalo__MaxImageBytes: ${ZALO_MAX_IMAGE_BYTES:-5242880}
+      SlaMonitoring__Enabled: ${SLA_MONITORING_ENABLED:-true}
+      SlaMonitoring__IntervalMinutes: ${SLA_MONITORING_INTERVAL_MINUTES:-5}
+      SlaMonitoring__InitialDelaySeconds: ${SLA_MONITORING_INITIAL_DELAY_SECONDS:-10}
+      SlaMonitoring__WarningThresholdPercent: ${SLA_MONITORING_WARNING_THRESHOLD_PERCENT:-30}
+    restart: unless-stopped

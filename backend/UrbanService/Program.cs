@@ -1,0 +1,358 @@
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using System.Reflection;
+using System.Text;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
+using UrbanService.Authorization;
+using UrbanService.BackgroundServices;
+using UrbanService.BLL.Common;
+using UrbanService.BLL.Interfaces;
+using UrbanService.BLL.Services;
+using UrbanService.DAL.Data;
+using UrbanService.DAL.Interfaces;
+using UrbanService.DAL.UnitOfWork;
+using UrbanService.Hubs;
+using UrbanService.Middlewares;
+using UrbanService.BLL.Options;
+using UrbanService.RateLimiting;
+
+// The database schema uses PostgreSQL `timestamp without time zone` for DateTime columns.
+// Existing services store UTC DateTime values (DateTime.UtcNow). Enable Npgsql's legacy
+// timestamp behavior so these UTC DateTime values can be written to the current schema.
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
+var builder = WebApplication.CreateBuilder(args);
+
+
+// Add services to the container.
+
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<PhoneVerifiedWriteFilter>();
+});
+builder.Services.AddDbContext<UrbanServiceDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+builder.Services.AddScoped<IFeedbackService, FeedbackService>();
+builder.Services.AddScoped<IFeedbackDuplicateCandidateService, FeedbackDuplicateCandidateService>();
+builder.Services.AddScoped<IIncidentService, IncidentService>();
+builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+builder.Services.AddScoped<IManagerAreaAssignmentService, ManagerAreaAssignmentService>();
+builder.Services.AddScoped<IStaffAreaAssignmentService, StaffAreaAssignmentService>();
+builder.Services.AddScoped<IAreaAlertService, AreaAlertService>();
+builder.Services.AddScoped<IInteractionMessageService, InteractionMessageService>();
+builder.Services.AddScoped<IMessengerAccountLinkService, MessengerAccountLinkService>();
+builder.Services.AddHttpClient<IMessengerService, MessengerService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        AllowAutoRedirect = false
+    })
+    .RemoveAllLoggers();
+builder.Services.AddSingleton<IMessengerWebhookQueue, MessengerWebhookQueue>();
+builder.Services.AddHostedService<MessengerWebhookWorker>();
+builder.Services.AddSingleton<ZaloTokenRefreshLock>();
+builder.Services.AddHttpClient<IZaloAccessTokenProvider, ZaloAccessTokenProvider>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient<IZaloService, ZaloService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<IZaloWebhookInbox, ZaloWebhookInbox>();
+builder.Services.AddSingleton<IZaloWebhookQueue, ZaloWebhookQueue>();
+if (builder.Configuration.GetValue("Zalo:Enabled", false) &&
+    builder.Configuration.GetValue("Zalo:WorkerEnabled", true))
+{
+    builder.Services.AddHostedService<ZaloWebhookWorker>();
+}
+builder.Services.AddScoped<
+    ISlaDashboardService,
+    SlaDashboardService>();
+builder.Services.AddScoped<
+    IIncidentDashboardService,
+    IncidentDashboardService>();
+
+builder.Services.AddScoped<
+    ISlaPolicyService,
+    SlaPolicyService>();
+
+builder.Services.AddScoped<
+    ISlaService,
+    SlaService>();
+
+// SLA Monitoring
+builder.Services
+    .AddOptions<SlaMonitoringOptions>()
+    .Bind(
+        builder.Configuration.GetSection(
+            SlaMonitoringOptions.SectionName))
+    .Validate(
+        options => options.IntervalMinutes >= 1,
+        "SlaMonitoring:IntervalMinutes phải lớn hơn hoặc bằng 1.")
+    .Validate(
+        options => options.InitialDelaySeconds >= 0,
+        "SlaMonitoring:InitialDelaySeconds không được nhỏ hơn 0.")
+    .Validate(
+        options =>
+            options.WarningThresholdPercent >= 1 &&
+            options.WarningThresholdPercent <= 99,
+        "SlaMonitoring:WarningThresholdPercent phải nằm trong khoảng 1-99.")
+    .ValidateOnStart();
+
+builder.Services.AddHostedService<
+    SlaMonitoringBackgroundService>();
+builder.Services.AddSingleton<IAiFeedbackReviewQueue, AiFeedbackReviewQueue>();
+
+// Default IAiClient is Qwen/Ollama. It is used for feedback draft, classification/review,
+// duplicate detection, and other non-chat AI tasks.
+builder.Services.AddHttpClient<IAiClient, AiClient>(client =>
+{
+    var baseUrl = builder.Configuration["AI:BaseUrl"]
+        ?? "http://localhost:11434";
+
+    client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : $"{baseUrl}/");
+
+    client.Timeout = TimeSpan.FromSeconds(
+        int.TryParse(builder.Configuration["AI:TimeoutSeconds"], out var timeoutSeconds)
+            ? timeoutSeconds
+            : 120);
+});
+
+// OpenRouter is registered separately and used only by the user chatbot.
+builder.Services.AddHttpClient<OpenRouterAiClient>(client =>
+{
+    var baseUrl = builder.Configuration["OpenRouter:BaseUrl"]
+        ?? "https://openrouter.ai/api/v1";
+
+    client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : $"{baseUrl}/");
+
+    client.Timeout = TimeSpan.FromSeconds(
+        int.TryParse(builder.Configuration["AI:TimeoutSeconds"], out var timeoutSeconds)
+            ? timeoutSeconds
+            : 120);
+});
+builder.Services.AddScoped<IAiFeedbackAnalysisService, AiFeedbackAnalysisService>();
+builder.Services.AddScoped<IAiFeedbackDuplicateService, AiFeedbackDuplicateService>();
+builder.Services.AddScoped<IAiChatService, AiChatService>();
+builder.Services.AddScoped<IAiFeedbackDraftService, AiFeedbackDraftService>();
+if (builder.Configuration.GetValue("AI:ReviewWorkerEnabled", true))
+{
+    builder.Services.AddHostedService<AiFeedbackReviewWorker>();
+}
+builder.Services.AddHttpClient<IEmailSender, BrevoEmailSender>(client =>
+{
+    client.BaseAddress = new Uri("https://api.brevo.com/v3/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+builder.Services.Configure<FirebaseOptions>(
+    builder.Configuration.GetSection(FirebaseOptions.SectionName));
+builder.Services.Configure<PhoneOtpOptions>(
+    builder.Configuration.GetSection(PhoneOtpOptions.SectionName));
+builder.Services.Configure<FeedbackLimitOptions>(
+    builder.Configuration.GetSection(FeedbackLimitOptions.SectionName));
+builder.Services.AddSingleton<IFirebasePhoneVerifier, FirebasePhoneVerifier>();
+
+builder.Services.AddScoped<IRealtimeNotificationSender, SignalRNotificationSender>();
+builder.Services.AddScoped<
+    ISlaRealtimeSender,
+    SignalRSlaRealtimeSender>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSignalR();
+builder.Services.AddHealthChecks();
+builder.Services.AddUrbanServiceRateLimiting(builder.Configuration);
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        var origins = builder.Configuration["Cors:AllowedOrigins"]?
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            ?? [];
+
+        if (origins.Length > 0)
+        {
+            policy.WithOrigins(origins)
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        }
+    });
+});
+
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Missing config: Jwt:Key");
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) &&
+    (
+        path.StartsWithSegments("/hubs/notifications") ||
+        path.StartsWithSegments("/hubs/sla")
+    ))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "UrbanService API",
+        Version = "v1",
+        Description = """
+            API quản lý dịch vụ đô thị.
+            Các endpoint yêu cầu xác thực JWT sẽ trả về 401 nếu token không hợp lệ hoặc hết hạn, và 403 nếu người dùng không có quyền truy cập.
+            """
+    });
+
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFile));
+
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Nhập JWT token lấy từ API login/register."
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+var app = builder.Build();
+
+InitializeFirebase(app);
+
+if (builder.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    using var migrationScope = app.Services.CreateScope();
+    var dbContext = migrationScope.ServiceProvider.GetRequiredService<UrbanServiceDbContext>();
+    dbContext.Database.Migrate();
+}
+
+// Configure the HTTP request pipeline.
+app.UseSwagger();
+app.UseSwaggerUI();
+
+app.UseMiddleware<ExceptionMiddleware>();
+
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseCors("Frontend");
+app.UseAuthentication();
+app.UseRateLimiter();
+app.UseAuthorization();
+
+app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications")
+    .DisableRateLimiting();
+app.MapHub<SlaHub>(
+    "/hubs/sla")
+    .DisableRateLimiting();
+app.MapHealthChecks("/health")
+    .DisableRateLimiting();
+
+app.Run();
+
+/// <summary>
+/// Nạp service account cho Firebase Admin SDK, dùng để xác minh ID token của luồng
+/// OTP số điện thoại.
+///
+/// Ưu tiên biến môi trường vì môi trường deploy chạy trong container và khoá riêng
+/// thì không được commit; đường dẫn file chỉ để tiện cho máy lập trình viên.
+///
+/// Thiếu cấu hình thì chỉ ghi cảnh báo chứ không chặn khởi động: cả hệ thống không
+/// nên chết chỉ vì một tính năng chưa cấu hình xong. Khi đó endpoint xác thực SĐT
+/// sẽ báo lỗi rõ ràng lúc được gọi.
+/// </summary>
+static void InitializeFirebase(WebApplication app)
+{
+    if (FirebaseApp.DefaultInstance != null)
+    {
+        return;
+    }
+
+    var settings = app.Services.GetRequiredService<IOptions<FirebaseOptions>>().Value;
+
+    GoogleCredential credential;
+    if (!string.IsNullOrWhiteSpace(settings.ServiceAccountJson))
+    {
+        credential = GoogleCredential.FromJson(settings.ServiceAccountJson);
+    }
+    else if (!string.IsNullOrWhiteSpace(settings.ServiceAccountPath) &&
+             File.Exists(settings.ServiceAccountPath))
+    {
+        credential = GoogleCredential.FromFile(settings.ServiceAccountPath);
+    }
+    else
+    {
+        app.Logger.LogWarning(
+            "Chưa cấu hình Firebase service account. Xác thực số điện thoại sẽ không dùng được " +
+            "cho tới khi đặt biến môi trường Firebase__ServiceAccountJson.");
+        return;
+    }
+
+    try
+    {
+        FirebaseApp.Create(new AppOptions { Credential = credential });
+        app.Logger.LogInformation("Đã khởi tạo Firebase Admin SDK.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Không khởi tạo được Firebase Admin SDK.");
+    }
+}

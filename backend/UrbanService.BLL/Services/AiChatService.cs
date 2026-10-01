@@ -1,0 +1,309 @@
+using Microsoft.EntityFrameworkCore;
+using UrbanService.BLL.DTOs.AI;
+using UrbanService.BLL.Interfaces;
+using UrbanService.DAL.Entities;
+using UrbanService.DAL.Interfaces;
+
+namespace UrbanService.BLL.Services;
+
+public class AiChatService : IAiChatService
+{
+    private const int MaxKnowledgeSources = 3;
+    private const int MaxKnowledgeSourceChars = 450;
+    private const int MaxHistoryMessages = 4;
+    private const int MaxHistoryMessageChars = 300;
+    private const int MaxFeedbackFieldChars = 350;
+    private const int MaxUserMessageChars = 700;
+    private const int MaxPromptChars = 10000;
+
+    private readonly IUnitOfWork _uow;
+    private readonly OpenRouterAiClient _aiClient;
+
+    public AiChatService(IUnitOfWork uow, OpenRouterAiClient aiClient)
+    {
+        _uow = uow;
+        _aiClient = aiClient;
+    }
+
+    public async Task<IReadOnlyCollection<AiConversationDto>> GetMyConversationsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _uow.GetRepository<AiConversation>().Entities
+            .AsNoTracking()
+            .Where(c => c.UserId == userId)
+            .Select(c => new AiConversationDto
+            {
+                ConversationId = c.AiConversationId,
+                FeedbackId = c.FeedbackId,
+                FeedbackTitle = c.Feedback != null ? c.Feedback.Title : null,
+                Title = c.Title,
+                Status = c.Status,
+                StartedAt = c.StartedAt,
+                EndedAt = c.EndedAt,
+                LastMessageAt = c.AiMessages
+                    .OrderByDescending(m => m.CreatedAt)
+                    .Select(m => (DateTime?)m.CreatedAt)
+                    .FirstOrDefault(),
+                LastMessage = c.AiMessages
+                    .OrderByDescending(m => m.CreatedAt)
+                    .Select(m => m.MessageText)
+                    .FirstOrDefault(),
+                MessageCount = c.AiMessages.Count
+            })
+            .OrderByDescending(c => c.LastMessageAt ?? c.StartedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<AiMessageDto>> GetConversationMessagesAsync(
+        Guid userId,
+        int conversationId,
+        CancellationToken cancellationToken = default)
+    {
+        var exists = await _uow.GetRepository<AiConversation>().Entities
+            .AsNoTracking()
+            .AnyAsync(c => c.AiConversationId == conversationId && c.UserId == userId, cancellationToken);
+
+        if (!exists)
+        {
+            throw new Exception("Khong tim thay conversation cua nguoi dung.");
+        }
+
+        return await _uow.GetRepository<AiMessage>().Entities
+            .AsNoTracking()
+            .Where(m => m.AiConversationId == conversationId)
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => new AiMessageDto
+            {
+                MessageId = m.AiMessageId,
+                ConversationId = m.AiConversationId,
+                SenderType = m.SenderType,
+                MessageText = m.MessageText,
+                CreatedAt = m.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task DeleteConversationAsync(
+        Guid userId,
+        int conversationId,
+        CancellationToken cancellationToken = default)
+    {
+        var conversation = await _uow.GetRepository<AiConversation>().Entities
+            .FirstOrDefaultAsync(
+                c => c.AiConversationId == conversationId && c.UserId == userId,
+                cancellationToken)
+            ?? throw new Exception("Khong tim thay conversation cua nguoi dung.");
+
+        _uow.GetRepository<AiConversation>().Delete(conversation);
+        await _uow.SaveAsync();
+    }
+
+    public async Task<AiChatResponse> SendAsync(
+        Guid userId,
+        AiChatRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Message))
+        {
+            throw new Exception("Message la bat buoc.");
+        }
+
+        Feedback? feedback = null;
+        if (request.FeedbackId.HasValue)
+        {
+            feedback = await _uow.GetRepository<Feedback>().Entities
+                .AsNoTracking()
+                .Include(f => f.Category)
+                .FirstOrDefaultAsync(
+                    f => f.FeedbackId == request.FeedbackId.Value && f.UserId == userId,
+                    cancellationToken)
+                ?? throw new Exception("Khong tim thay feedback cua nguoi dung.");
+        }
+
+        var conversation = await GetOrCreateConversationAsync(userId, request, cancellationToken);
+        var now = DateTime.UtcNow;
+
+        await _uow.GetRepository<AiMessage>().AddAsync(new AiMessage
+        {
+            AiConversationId = conversation.AiConversationId,
+            SenderType = "User",
+            MessageText = request.Message.Trim(),
+            CreatedAt = now
+        });
+
+        var knowledge = await BuildKnowledgeContextAsync(feedback, request.Message, cancellationToken);
+        var conversationHistory = await BuildConversationHistoryAsync(conversation.AiConversationId, cancellationToken);
+        var prompt = BuildChatPrompt(request.Message.Trim(), knowledge, feedback, conversationHistory);
+        var aiMessage = await _aiClient.ChatAsync(prompt, jsonFormat: false, cancellationToken: cancellationToken);
+
+        var savedAiMessage = new AiMessage
+        {
+            AiConversationId = conversation.AiConversationId,
+            SenderType = "AI",
+            MessageText = aiMessage,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _uow.GetRepository<AiMessage>().AddAsync(savedAiMessage);
+        await _uow.SaveAsync();
+
+        return new AiChatResponse
+        {
+            ConversationId = conversation.AiConversationId,
+            Message = savedAiMessage.MessageText,
+            CreatedAt = savedAiMessage.CreatedAt
+        };
+    }
+
+    private async Task<AiConversation> GetOrCreateConversationAsync(
+        Guid userId,
+        AiChatRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.ConversationId is > 0)
+        {
+            return await _uow.GetRepository<AiConversation>().Entities
+                .FirstOrDefaultAsync(
+                    c => c.AiConversationId == request.ConversationId.Value && c.UserId == userId,
+                    cancellationToken)
+                ?? throw new Exception("Khong tim thay conversation cua nguoi dung.");
+        }
+
+        var title = request.Message.Trim();
+        if (title.Length > 80)
+        {
+            title = title[..80];
+        }
+
+        var conversation = new AiConversation
+        {
+            UserId = userId,
+            FeedbackId = request.FeedbackId,
+            Title = title,
+            StartedAt = DateTime.UtcNow,
+            Status = "Active"
+        };
+
+        await _uow.GetRepository<AiConversation>().AddAsync(conversation);
+        await _uow.SaveAsync();
+        return conversation;
+    }
+
+    private async Task<string> BuildKnowledgeContextAsync(
+        Feedback? feedback,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        var query = _uow.GetRepository<AiKnowledgeSource>().Entities
+            .AsNoTracking()
+            .Where(k => k.IsActive && !string.IsNullOrWhiteSpace(k.Content));
+
+        if (feedback != null)
+        {
+            query = query.Where(k => k.CategoryId == null || k.CategoryId == feedback.CategoryId);
+        }
+        else
+        {
+            query = query.Where(k => k.CategoryId == null);
+        }
+
+        var sources = await query.Take(12).ToListAsync(cancellationToken);
+        var terms = message.ToLower()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(t => t.Length >= 3)
+            .Distinct()
+            .ToArray();
+
+        var selected = sources
+            .Select(source => new
+            {
+                Source = source,
+                Score = terms.Count(term =>
+                    source.Title.ToLower().Contains(term) ||
+                    (source.Content?.ToLower().Contains(term) ?? false))
+            })
+            .OrderByDescending(x => x.Score)
+            .ThenByDescending(x => x.Source.CategoryId.HasValue)
+            .Take(MaxKnowledgeSources)
+            .Select(x => $"- {Truncate(x.Source.Title, 120)}: {Truncate(x.Source.Content, MaxKnowledgeSourceChars)}");
+
+        return string.Join(Environment.NewLine, selected);
+    }
+
+    private async Task<string> BuildConversationHistoryAsync(
+        int conversationId,
+        CancellationToken cancellationToken)
+    {
+        var messages = await _uow.GetRepository<AiMessage>().Entities
+            .AsNoTracking()
+            .Where(m => m.AiConversationId == conversationId)
+            .OrderByDescending(m => m.CreatedAt)
+            .Take(MaxHistoryMessages)
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => new
+            {
+                m.SenderType,
+                m.MessageText
+            })
+            .ToListAsync(cancellationToken);
+
+        if (messages.Count == 0)
+        {
+            return "Chua co lich su hoi thoai truoc do trong conversation nay.";
+        }
+
+        return string.Join(Environment.NewLine, messages.Select(m =>
+        {
+            var sender = string.Equals(m.SenderType, "AI", StringComparison.OrdinalIgnoreCase)
+                ? "AI"
+                : "Nguoi dan";
+
+            return $"- {sender}: {Truncate(m.MessageText, MaxHistoryMessageChars)}";
+        }));
+    }
+
+    private static string BuildChatPrompt(string message, string knowledge, Feedback? feedback, string conversationHistory)
+    {
+        var safeMessage = Truncate(message.Trim(), MaxUserMessageChars);
+        var feedbackContext = feedback == null
+            ? "Khong co feedback cu the."
+            : $"""
+              Feedback lien quan:
+              - Ma feedback: {feedback.FeedbackId}
+              - Tieu de: {Truncate(feedback.Title, MaxFeedbackFieldChars)}
+              - Mo ta: {Truncate(feedback.Description, MaxFeedbackFieldChars)}
+              - Dia diem: {Truncate(feedback.LocationText, MaxFeedbackFieldChars)}
+              - Trang thai: {feedback.Status}
+              - Category: {Truncate(feedback.Category.CategoryName, 120)}
+              """;
+
+        var prompt = $"""
+        Bạn là trợ lý UrbanService cho người dân.
+        Chỉ trả lời dựa trên knowledge được cung cấp và thông tin feedback nếu có.
+        Nếu không đủ thông tin, hãy nói rõ là chưa đủ thông tin và đề xuất người dân liên hệ nhân viên hỗ trợ.
+        Không tự ý hứa thời gian xử lý nếu knowledge không có.
+        Luôn trả lời bằng tiếng Việt có dấu, ngắn gọn, lịch sự.
+
+        Knowledge:
+        {knowledge}
+
+        Lich su hoi thoai trong conversation hien tai:
+        {conversationHistory}
+
+        {feedbackContext}
+
+        Cau hoi moi nhat cua nguoi dan:
+        {safeMessage}
+        """;
+
+        return prompt.Length <= MaxPromptChars ? prompt : prompt[..MaxPromptChars];
+    }
+
+    private static string? Truncate(string? value, int maxLength)
+    {
+        return string.IsNullOrEmpty(value) || value.Length <= maxLength
+            ? value
+            : value[..maxLength];
+    }
+}

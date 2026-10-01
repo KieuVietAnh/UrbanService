@@ -1,0 +1,3449 @@
+﻿using System.Text.Json;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using UrbanService.BLL.Common;
+using UrbanService.BLL.Common.Constraint;
+using UrbanService.BLL.Dtos;
+using UrbanService.BLL.DTOs;
+using UrbanService.BLL.DTOs.AI;
+using UrbanService.BLL.Interfaces;
+using UrbanService.BLL.Options;
+using UrbanService.DAL.Entities;
+using UrbanService.DAL.Interfaces;
+using UrbanService.BLL.DTOs.SLA;
+
+
+
+namespace UrbanService.BLL.Services;
+
+public class FeedbackService : IFeedbackService
+{
+    private const int MaxPageSize = 100;
+    private static readonly IReadOnlyCollection<string> AllowedProviderReportStatuses =
+    [
+        "Reported",
+        "InProgress",
+        "Done",
+        "Failed",
+        "Cancelled"
+    ];
+
+    private readonly IUnitOfWork _uow;
+    private readonly INotificationService _notificationService;
+    private readonly IAiFeedbackReviewQueue _aiFeedbackReviewQueue;
+    private readonly IIncidentService _incidentService;
+    private readonly FeedbackLimitOptions _feedbackLimitOptions;
+    private static readonly TimeSpan VietnamOffset = TimeSpan.FromHours(7);
+
+
+    public FeedbackService(
+    IUnitOfWork uow,
+    INotificationService notificationService,
+    IAiFeedbackReviewQueue aiFeedbackReviewQueue,
+    IAiFeedbackDuplicateService aiFeedbackDuplicateService,
+    IIncidentService incidentService,
+    IOptions<FeedbackLimitOptions> feedbackLimitOptions)
+    {
+        _uow = uow;
+        _notificationService = notificationService;
+        _aiFeedbackReviewQueue = aiFeedbackReviewQueue;
+        _incidentService = incidentService;
+        _feedbackLimitOptions = feedbackLimitOptions.Value;
+    }
+
+    public async Task ClearCompletionDocumentsAsync(
+        int providerAssignmentId,
+        Guid currentUserId)
+    {
+        await EnsureProviderAssignmentOperationAccessAsync(providerAssignmentId, currentUserId);
+        var report = await _uow
+            .GetRepository<FeedbackProviderReport>()
+            .Entities
+            .Include(x => x.Incident)
+            .FirstOrDefaultAsync(x =>
+                x.ProviderReportId ==
+                    providerAssignmentId)
+            ?? throw new Exception(
+                "Provider report khong ton tai.");
+
+        /*
+         * Sau khi manager NeedRework:
+         *
+         * Feedback       = NeedRework
+         * ProviderReport = InProgress
+         *
+         * Chỉ lúc này staff mới được replace bộ minh chứng.
+         */
+        if (!string.Equals(
+                report.ReportStatus,
+                "InProgress",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception(
+                "Provider report phải ở trạng thái InProgress để thay thế tài liệu.");
+        }
+
+        if (!string.Equals(
+                report.Incident.Status,
+                IncidentStatus.NeedRework,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception(
+                "Chỉ được thay thế tài liệu khi feedback đang NeedRework.");
+        }
+
+        var documentRepo =
+            _uow.GetRepository<CompletionDocument>();
+
+        var oldDocuments =
+            await documentRepo
+                .Entities
+                .Where(x =>
+                    x.ProviderReportId ==
+                        providerAssignmentId)
+                .ToListAsync();
+
+        foreach (var document in oldDocuments)
+        {
+            documentRepo.Delete(
+                document);
+        }
+
+        await _uow.SaveAsync();
+    }
+
+    public async Task EnsureManagementFeedbackReadAccessAsync(
+        Guid feedbackId,
+        Guid currentUserId)
+    {
+        await ManagementAccessRules.EnsureFeedbackReadAccessAsync(
+            _uow,
+            feedbackId,
+            currentUserId);
+    }
+
+    public async Task EnsureProviderAssignmentOperationAccessAsync(
+        int providerAssignmentId,
+        Guid currentUserId)
+    {
+        var incidentId = await ManagementAccessRules.GetProviderAssignmentIncidentIdAsync(
+            _uow,
+            providerAssignmentId);
+        await ManagementAccessRules.EnsureStaffIncidentOperationAsync(
+            _uow,
+            incidentId,
+            currentUserId);
+    }
+
+    public async Task<FeedbackDetailDto> CreateAsync(
+        Guid userId,
+        FeedbackCreateRequest request,
+        IReadOnlyCollection<UploadedFeedbackAttachmentDto> attachments,
+        Guid? targetIncidentId = null)
+    {
+        ValidateCreate(request);
+        var submissionChannel = NormalizeSubmissionChannel(request.SubmissionChannel);
+        await EnsureCitizenCanSubmitWebFeedbackAsync(userId, submissionChannel);
+        await EnsureAreaMatchesLocationAsync(request.AreaId, request.Latitude, request.Longitude);
+
+        var now = DateTime.UtcNow;
+        var feedback = new Feedback
+        {
+            FeedbackId = Guid.NewGuid(),
+            UserId = userId,
+            AreaId = request.AreaId,
+            CategoryId = null,
+            Title = request.Title.Trim(),
+            Description = request.Description.Trim(),
+            LocationText = request.LocationText.Trim(),
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+            LocationAccuracyMeters = request.LocationAccuracyMeters,
+            GeoSource = NormalizeOptional(request.GeoSource),
+            SubmissionChannel = submissionChannel,
+            IsLocationVerified = false,
+            Priority = null,
+            Status = FeedbackStatus.Submitted,
+            DueDate = request.DueDate,
+            IsMasterTicket = false,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        foreach (var attachment in attachments)
+        {
+            feedback.FeedbackAttachments.Add(new FeedbackAttachment
+            {
+                FileUrl = attachment.FileUrl,
+                FileType = attachment.FileType,
+                UploadedAt = now
+            });
+        }
+
+        feedback.FeedbackStatusHistories.Add(new FeedbackStatusHistory
+        {
+            ChangedByUserId = userId,
+            OldStatus = null,
+            NewStatus = feedback.Status,
+            Note = "Feedback created",
+            ChangedAt = now
+        });
+
+        _uow.BeginTransaction();
+        try
+        {
+            await _uow.GetRepository<Feedback>().AddAsync(feedback);
+            if (targetIncidentId.HasValue)
+            {
+                await _incidentService.StageReportInExistingIncidentAsync(
+                    feedback,
+                    targetIncidentId.Value,
+                    userId,
+                    now);
+            }
+            await _uow.SaveAsync();
+            _uow.CommitTransaction();
+        }
+        catch
+        {
+            _uow.RollBack();
+            throw;
+        }
+
+        await _aiFeedbackReviewQueue.EnqueueAsync(feedback.FeedbackId, userId);
+        await SendFeedbackNotificationAsync(
+            feedback,
+            "Phản ánh đã được tạo",
+            $"Phản ánh \"{feedback.Title}\" đã được tiếp nhận và đang chờ xử lý.",
+            incidentIdOverride: targetIncidentId);
+
+        return await GetMyFeedbackDetailAsync(userId, feedback.FeedbackId);
+    }
+
+    public async Task<PagedResultDto<FeedbackListItemDto>> GetMyFeedbacksAsync(Guid userId, FeedbackQueryParameters query)
+    {
+        var pageNumber = query.PageNumber < 1 ? 1 : query.PageNumber;
+        var pageSize = query.PageSize < 1 ? 10 : Math.Min(query.PageSize, MaxPageSize);
+        var search = query.Search?.Trim().ToLower();
+        var status = query.Status?.Trim().ToLower();
+        var submissionChannel = query.SubmissionChannel?.Trim().ToLower();
+
+        var feedbacks = _uow.GetRepository<Feedback>().Entities
+            .AsNoTracking()
+            .Where(f => f.UserId == userId);
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            feedbacks = feedbacks.Where(f => f.Status.ToLower() == status);
+        }
+
+        if (!string.IsNullOrWhiteSpace(submissionChannel))
+        {
+            feedbacks = feedbacks.Where(f => f.SubmissionChannel.ToLower() == submissionChannel);
+        }
+
+        if (query.CategoryId.HasValue)
+        {
+            feedbacks = feedbacks.Where(f => f.CategoryId == query.CategoryId.Value);
+        }
+
+        if (query.HasPreciseLocation.HasValue)
+        {
+            feedbacks = query.HasPreciseLocation.Value
+                ? feedbacks.Where(f => f.Latitude.HasValue && f.Longitude.HasValue)
+                : feedbacks.Where(f => !f.Latitude.HasValue || !f.Longitude.HasValue);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            feedbacks = feedbacks.Where(f =>
+                f.Title.ToLower().Contains(search) ||
+                f.Description.ToLower().Contains(search) ||
+                f.LocationText.ToLower().Contains(search));
+        }
+
+        var totalItems = await feedbacks.CountAsync();
+        var items = await feedbacks
+            .OrderByDescending(f => f.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(f => new FeedbackListItemDto
+            {
+                FeedbackId = f.FeedbackId,
+                UserId = f.UserId,
+                UserName = f.User.FullName,
+                AreaId = f.AreaId,
+                AreaName = f.Area.AreaName,
+                CategoryId = f.CategoryId,
+                CategoryName = f.Category.CategoryName,
+                Title = f.Title,
+                LocationText = f.LocationText,
+                Latitude = f.Latitude,
+                Longitude = f.Longitude,
+                Priority = f.Priority,
+                Severity = f.Severity,
+                Status = f.Status,
+                SubmissionChannel = f.SubmissionChannel,
+                CreatedAt = f.CreatedAt,
+                UpdatedAt = f.UpdatedAt,
+                AttachmentCount = f.FeedbackAttachments.Count,
+                CommentCount = f.FeedbackComments.Count,
+                SupportCount = f.FeedbackSupports.Count,
+                DuplicateWarning = f.FeedbackDuplicateCandidates.Any(candidate => candidate.Status == "Pending"),
+                ParentTicketId = f.ParentTicketId,
+                IsMasterTicket = f.IsMasterTicket,
+                IncidentId = f.IncidentReportLinks
+                    .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+                    .Select(link => (Guid?)link.IncidentId)
+                    .FirstOrDefault(),
+                IncidentReportCount = f.IncidentReportLinks
+                    .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+                    .Select(link => link.Incident.IncidentReportLinks.Count(item => item.LinkStatus == IncidentLinkStatus.Active))
+                    .FirstOrDefault(),
+                IncidentLinkStatus = f.IncidentReportLinks
+                    .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+                    .Select(link => link.LinkStatus)
+                    .FirstOrDefault()
+            })
+            .ToListAsync();
+
+        return new PagedResultDto<FeedbackListItemDto>
+        {
+            Items = items,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalItems = totalItems,
+            TotalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)pageSize)
+        };
+    }
+
+    public async Task<FeedbackDetailDto> GetMyFeedbackDetailAsync(Guid userId, Guid feedbackId)
+    {
+        var feedback = await GetOwnedFeedbackWithDetailsAsync(userId, feedbackId, asNoTracking: true);
+        var detail = MapDetail(feedback, userId);
+        await PopulateDuplicateInfoAsync(detail);
+        return detail;
+    }
+
+    public async Task<FeedbackDetailDto> GetResidentFeedFeedbackDetailAsync(Guid currentUserId, Guid feedbackId)
+    {
+        var feedback = await GetFeedbackWithDetailsAsync(feedbackId, asNoTracking: true);
+
+        if (IsInternalFeedbackStatus(feedback.Status))
+        {
+            throw new Exception("Feedback này chưa được công khai trên bảng tin.");
+        }
+
+        var detail = MapDetail(feedback, currentUserId);
+        await PopulateDuplicateInfoAsync(detail);
+        return detail;
+    }
+
+    public async Task<PagedResultDto<FeedbackListItemDto>> GetResidentFeedFeedbacksAsync(FeedbackQueryParameters query)
+    {
+        var pageNumber = query.PageNumber < 1 ? 1 : query.PageNumber;
+        var pageSize = query.PageSize < 1 ? 10 : Math.Min(query.PageSize, MaxPageSize);
+        var search = query.Search?.Trim().ToLower();
+        var status = query.Status?.Trim().ToLower();
+        var submissionChannel = query.SubmissionChannel?.Trim().ToLower();
+
+        var feedbacks = _uow.GetRepository<Feedback>().Entities
+            .AsNoTracking()
+            .Where(f => !InternalFeedbackStatuses.Contains(f.Status));
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            feedbacks = feedbacks.Where(f => f.Status.ToLower() == status);
+        }
+
+        if (!string.IsNullOrWhiteSpace(submissionChannel))
+        {
+            feedbacks = feedbacks.Where(f => f.SubmissionChannel.ToLower() == submissionChannel);
+        }
+
+        if (query.CategoryId.HasValue)
+        {
+            feedbacks = feedbacks.Where(f => f.CategoryId == query.CategoryId.Value);
+        }
+
+        if (query.HasPreciseLocation.HasValue)
+        {
+            feedbacks = query.HasPreciseLocation.Value
+                ? feedbacks.Where(f => f.Latitude.HasValue && f.Longitude.HasValue)
+                : feedbacks.Where(f => !f.Latitude.HasValue || !f.Longitude.HasValue);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            feedbacks = feedbacks.Where(f =>
+                f.Title.ToLower().Contains(search) ||
+                f.Description.ToLower().Contains(search) ||
+                f.LocationText.ToLower().Contains(search));
+        }
+
+        var totalItems = await feedbacks.CountAsync();
+        var items = await feedbacks
+            .OrderByDescending(f => f.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(f => new FeedbackListItemDto
+            {
+                FeedbackId = f.FeedbackId,
+                UserId = f.UserId,
+                UserName = f.User.FullName,
+                AreaId = f.AreaId,
+                AreaName = f.Area.AreaName,
+                CategoryId = f.CategoryId,
+                CategoryName = f.Category.CategoryName,
+                Title = f.Title,
+                LocationText = f.LocationText,
+                Latitude = f.Latitude,
+                Longitude = f.Longitude,
+                Priority = f.Priority,
+                Severity = f.Severity,
+                Status = f.Status,
+                SubmissionChannel = f.SubmissionChannel,
+                CreatedAt = f.CreatedAt,
+                UpdatedAt = f.UpdatedAt,
+                AttachmentCount = f.FeedbackAttachments.Count,
+                CommentCount = f.FeedbackComments.Count,
+                SupportCount = f.FeedbackSupports.Count,
+                DuplicateWarning = f.FeedbackDuplicateCandidates.Any(candidate => candidate.Status == "Pending"),
+                ParentTicketId = f.ParentTicketId,
+                IsMasterTicket = f.IsMasterTicket,
+                IncidentId = f.IncidentReportLinks
+                    .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+                    .Select(link => (Guid?)link.IncidentId)
+                    .FirstOrDefault(),
+                IncidentReportCount = f.IncidentReportLinks
+                    .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+                    .Select(link => link.Incident.IncidentReportLinks.Count(item => item.LinkStatus == IncidentLinkStatus.Active))
+                    .FirstOrDefault(),
+                IncidentLinkStatus = f.IncidentReportLinks
+                    .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+                    .Select(link => link.LinkStatus)
+                    .FirstOrDefault()
+            })
+            .ToListAsync();
+
+        return new PagedResultDto<FeedbackListItemDto>
+        {
+            Items = items,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalItems = totalItems,
+            TotalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)pageSize)
+        };
+    }
+
+    public async Task<PagedResultDto<FeedbackListItemDto>> GetAllFeedbacksAsync(
+        Guid currentUserId,
+        FeedbackQueryParameters query)
+    {
+        var actor = await ManagementAccessRules.GetActorScopeAsync(_uow, currentUserId);
+        var pageNumber = query.PageNumber < 1 ? 1 : query.PageNumber;
+        var pageSize = query.PageSize < 1 ? 10 : Math.Min(query.PageSize, MaxPageSize);
+        var search = query.Search?.Trim().ToLower();
+        var status = query.Status?.Trim().ToLower();
+        var submissionChannel = query.SubmissionChannel?.Trim().ToLower();
+
+        var feedbacks = ManagementAccessRules.ApplyFeedbackReadScope(
+            _uow.GetRepository<Feedback>().Entities.AsNoTracking(),
+            actor);
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            feedbacks = feedbacks.Where(f => f.Status.ToLower() == status);
+        }
+
+        if (!string.IsNullOrWhiteSpace(submissionChannel))
+        {
+            feedbacks = feedbacks.Where(f => f.SubmissionChannel.ToLower() == submissionChannel);
+        }
+
+        if (query.CategoryId.HasValue)
+        {
+            feedbacks = feedbacks.Where(f => f.CategoryId == query.CategoryId.Value);
+        }
+
+        if (query.HasPreciseLocation.HasValue)
+        {
+            feedbacks = query.HasPreciseLocation.Value
+                ? feedbacks.Where(f => f.Latitude.HasValue && f.Longitude.HasValue)
+                : feedbacks.Where(f => !f.Latitude.HasValue || !f.Longitude.HasValue);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            feedbacks = feedbacks.Where(f =>
+                f.Title.ToLower().Contains(search) ||
+                f.Description.ToLower().Contains(search) ||
+                f.LocationText.ToLower().Contains(search));
+        }
+
+        var totalItems = await feedbacks.CountAsync();
+        var items = await feedbacks
+            .OrderByDescending(f => f.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(f => new FeedbackListItemDto
+            {
+                FeedbackId = f.FeedbackId,
+                UserId = f.UserId,
+                UserName = f.User.FullName,
+                AreaId = f.AreaId,
+                AreaName = f.Area.AreaName,
+                CategoryId = f.CategoryId,
+                CategoryName = f.Category.CategoryName,
+                Title = f.Title,
+                LocationText = f.LocationText,
+                Latitude = f.Latitude,
+                Longitude = f.Longitude,
+                Priority = f.Priority,
+                Severity = f.Severity,
+                Status = f.Status,
+                SubmissionChannel = f.SubmissionChannel,
+                CreatedAt = f.CreatedAt,
+                UpdatedAt = f.UpdatedAt,
+                AttachmentCount = f.FeedbackAttachments.Count,
+                CommentCount = f.FeedbackComments.Count,
+                SupportCount = f.FeedbackSupports.Count,
+                DuplicateWarning = f.FeedbackDuplicateCandidates.Any(candidate => candidate.Status == "Pending"),
+                ParentTicketId = f.ParentTicketId,
+                IsMasterTicket = f.IsMasterTicket,
+                IncidentId = f.IncidentReportLinks
+                    .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+                    .Select(link => (Guid?)link.IncidentId)
+                    .FirstOrDefault(),
+                IncidentReportCount = f.IncidentReportLinks
+                    .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+                    .Select(link => link.Incident.IncidentReportLinks.Count(item => item.LinkStatus == IncidentLinkStatus.Active))
+                    .FirstOrDefault(),
+                IncidentLinkStatus = f.IncidentReportLinks
+                    .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+                    .Select(link => link.LinkStatus)
+                    .FirstOrDefault()
+            })
+            .ToListAsync();
+
+        return new PagedResultDto<FeedbackListItemDto>
+        {
+            Items = items,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalItems = totalItems,
+            TotalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)pageSize)
+        };
+    }
+
+    public async Task<PagedResultDto<FeedbackWithAnalysisResultDto>> GetAiReviewedFeedbacksAsync(
+        Guid currentUserId,
+        FeedbackQueryParameters query)
+    {
+        var actor = await ManagementAccessRules.GetActorScopeAsync(_uow, currentUserId);
+        var pageNumber = query.PageNumber < 1 ? 1 : query.PageNumber;
+        var pageSize = query.PageSize < 1 ? 10 : Math.Min(query.PageSize, MaxPageSize);
+        var search = query.Search?.Trim().ToLower();
+        var submissionChannel = query.SubmissionChannel?.Trim().ToLower();
+
+        var feedbacks = ManagementAccessRules.ApplyFeedbackReadScope(
+                _uow.GetRepository<Feedback>().Entities.AsNoTracking(),
+                actor)
+            .Where(f => f.Status.ToLower() == FeedbackStatus.AiReviewed.ToLower());
+
+        if (!string.IsNullOrWhiteSpace(submissionChannel))
+        {
+            feedbacks = feedbacks.Where(f => f.SubmissionChannel.ToLower() == submissionChannel);
+        }
+
+        if (query.CategoryId.HasValue)
+        {
+            feedbacks = feedbacks.Where(f => f.CategoryId == query.CategoryId.Value);
+        }
+
+        if (query.HasPreciseLocation.HasValue)
+        {
+            feedbacks = query.HasPreciseLocation.Value
+                ? feedbacks.Where(f => f.Latitude.HasValue && f.Longitude.HasValue)
+                : feedbacks.Where(f => !f.Latitude.HasValue || !f.Longitude.HasValue);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            feedbacks = feedbacks.Where(f =>
+                f.Title.ToLower().Contains(search) ||
+                f.Description.ToLower().Contains(search) ||
+                f.LocationText.ToLower().Contains(search));
+        }
+
+        var totalItems = await feedbacks.CountAsync();
+        var rows = await feedbacks
+            .OrderByDescending(f => f.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(f => new
+            {
+                Feedback = new FeedbackListItemDto
+                {
+                    FeedbackId = f.FeedbackId,
+                    UserId = f.UserId,
+                    UserName = f.User.FullName,
+                    AreaId = f.AreaId,
+                    AreaName = f.Area.AreaName,
+                    CategoryId = f.CategoryId,
+                    CategoryName = f.Category.CategoryName,
+                    Title = f.Title,
+                    LocationText = f.LocationText,
+                    Latitude = f.Latitude,
+                    Longitude = f.Longitude,
+                    Priority = f.Priority,
+                    Severity = f.Severity,
+                    Status = f.Status,
+                    SubmissionChannel = f.SubmissionChannel,
+                    CreatedAt = f.CreatedAt,
+                    UpdatedAt = f.UpdatedAt,
+                    AttachmentCount = f.FeedbackAttachments.Count,
+                    CommentCount = f.FeedbackComments.Count,
+                    SupportCount = f.FeedbackSupports.Count,
+                    DuplicateWarning = f.FeedbackDuplicateCandidates.Any(candidate => candidate.Status == "Pending"),
+                    ParentTicketId = f.ParentTicketId,
+                    IsMasterTicket = f.IsMasterTicket,
+                    IncidentId = f.IncidentReportLinks
+                        .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+                        .Select(link => (Guid?)link.IncidentId)
+                        .FirstOrDefault(),
+                    IncidentReportCount = f.IncidentReportLinks
+                        .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+                        .Select(link => link.Incident.IncidentReportLinks.Count(item => item.LinkStatus == IncidentLinkStatus.Active))
+                        .FirstOrDefault(),
+                    IncidentLinkStatus = f.IncidentReportLinks
+                        .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+                        .Select(link => link.LinkStatus)
+                        .FirstOrDefault()
+                },
+                AnalysisResult = f.AnalysisResults
+                    .OrderByDescending(a => a.CreatedAt)
+                    .Select(a => new
+                    {
+                        a.AnalysisResultId,
+                        a.FeedbackId,
+                        a.ModelName,
+                        a.DetectedCategoryId,
+                        DetectedCategoryName = a.DetectedCategory == null
+                            ? null
+                            : a.DetectedCategory.CategoryName,
+                        a.Sentiment,
+                        a.UrgencyLevel,
+                        a.SeverityLevel,
+                        a.Summary,
+                        a.Keywords,
+                        a.ConfidenceScore,
+                        a.RawResponse,
+                        a.CreatedAt
+                    })
+                    .FirstOrDefault()
+            })
+            .ToListAsync();
+
+        var items = rows
+            .Select(row => new FeedbackWithAnalysisResultDto
+            {
+                Feedback = row.Feedback,
+                AnalysisResult = row.AnalysisResult == null
+                    ? null
+                    : new AiAnalysisResponseDto
+                    {
+                        AnalysisResultId = row.AnalysisResult.AnalysisResultId,
+                        FeedbackId = row.AnalysisResult.FeedbackId,
+                        ModelName = row.AnalysisResult.ModelName,
+                        DetectedCategoryId = row.AnalysisResult.DetectedCategoryId,
+                        DetectedCategoryName = row.AnalysisResult.DetectedCategoryName,
+                        Sentiment = row.AnalysisResult.Sentiment,
+                        UrgencyLevel = row.AnalysisResult.UrgencyLevel,
+                        SeverityLevel = row.AnalysisResult.SeverityLevel,
+                        Summary = row.AnalysisResult.Summary,
+                        Keywords = ParseAnalysisKeywords(row.AnalysisResult.Keywords),
+                        ConfidenceScore = row.AnalysisResult.ConfidenceScore,
+                        RawResponse = row.AnalysisResult.RawResponse,
+                        CreatedAt = row.AnalysisResult.CreatedAt
+                    }
+            })
+            .ToList();
+
+        return new PagedResultDto<FeedbackWithAnalysisResultDto>
+        {
+            Items = items,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalItems = totalItems,
+            TotalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)pageSize)
+        };
+    }
+
+    public async Task<FeedbackDetailDto> GetFeedbackDetailAsync(Guid currentUserId, Guid feedbackId)
+    {
+        await EnsureManagementFeedbackReadAccessAsync(feedbackId, currentUserId);
+        var feedback = await GetFeedbackWithDetailsAsync(feedbackId, asNoTracking: true);
+        var detail = MapDetail(feedback, currentUserId);
+        await PopulateDuplicateInfoAsync(detail);
+        return detail;
+    }
+
+    public async Task<FeedbackDetailDto> UpdateAsync(Guid userId, Guid feedbackId, FeedbackUpdateRequest request)
+    {
+        var feedback = await GetOwnedFeedbackWithDetailsAsync(userId, feedbackId, asNoTracking: false);
+
+        var updatedAreaId = request.AreaId ?? feedback.AreaId;
+        var updatedLatitude = request.Latitude ?? feedback.Latitude;
+        var updatedLongitude = request.Longitude ?? feedback.Longitude;
+        await EnsureAreaMatchesLocationAsync(updatedAreaId, updatedLatitude, updatedLongitude);
+
+        if (request.AreaId.HasValue && request.AreaId.Value != feedback.AreaId)
+        {
+            feedback.AreaId = request.AreaId.Value;
+        }
+
+        if (request.CategoryId.HasValue && request.CategoryId.Value != feedback.CategoryId)
+        {
+            await EnsureCategoryExistsAsync(request.CategoryId.Value);
+            feedback.CategoryId = request.CategoryId.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Title))
+        {
+            feedback.Title = request.Title.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Description))
+        {
+            feedback.Description = request.Description.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.LocationText))
+        {
+            feedback.LocationText = request.LocationText.Trim();
+        }
+
+        feedback.Latitude = request.Latitude ?? feedback.Latitude;
+        feedback.Longitude = request.Longitude ?? feedback.Longitude;
+        feedback.LocationAccuracyMeters = request.LocationAccuracyMeters ?? feedback.LocationAccuracyMeters;
+        feedback.GeoSource = request.GeoSource != null ? NormalizeOptional(request.GeoSource) : feedback.GeoSource;
+        feedback.Priority = string.IsNullOrWhiteSpace(request.Priority) ? feedback.Priority : request.Priority.Trim();
+        feedback.DueDate = request.DueDate ?? feedback.DueDate;
+        feedback.UpdatedAt = DateTime.UtcNow;
+
+        await _uow.SaveAsync();
+        await SendFeedbackNotificationAsync(
+            feedback,
+            "Phản ánh đã được cập nhật",
+            $"Phản ánh \"{feedback.Title}\" của bạn đã được cập nhật thành công.");
+
+        return await GetMyFeedbackDetailAsync(userId, feedbackId);
+    }
+
+    public async Task<FeedbackDetailDto> UpdateByStaffAsync(
+    Guid currentUserId,
+    Guid feedbackId,
+    StaffFeedbackUpdateRequest request)
+    {
+        var isUnlinkedPreVerification = await _uow.GetRepository<Feedback>().Entities
+            .AsNoTracking()
+            .AnyAsync(feedback =>
+                feedback.FeedbackId == feedbackId &&
+                (feedback.Status == FeedbackStatus.Submitted || feedback.Status == FeedbackStatus.AiReviewed) &&
+                !feedback.IncidentReportLinks.Any(link => link.LinkStatus == IncidentLinkStatus.Active));
+
+        if (isUnlinkedPreVerification)
+        {
+            await ManagementAccessRules.EnsureManagerFeedbackReviewAccessAsync(
+                _uow, feedbackId, currentUserId);
+        }
+        else
+        {
+            await ManagementAccessRules.EnsureManagerFeedbackOperationAsync(
+                _uow, feedbackId, currentUserId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            throw new Exception(
+                "Không cập nhật trạng thái qua API chỉnh sửa phản ánh. Hãy dùng thao tác duyệt chuyên biệt.");
+        }
+
+        var severity = request.Severity == null
+            ? null
+            : IncidentSeverity.All.FirstOrDefault(value =>
+                string.Equals(value, request.Severity.Trim(), StringComparison.OrdinalIgnoreCase))
+                ?? throw new Exception("Severity chỉ nhận Low, Medium, High hoặc Critical.");
+
+        if (request.AreaId.HasValue)
+        {
+            var actor = await ManagementAccessRules.GetActorScopeAsync(_uow, currentUserId);
+            ManagementAccessRules.EnsureManagerArea(actor, request.AreaId.Value);
+        }
+
+        var feedback = await GetFeedbackWithDetailsAsync(
+            feedbackId,
+            asNoTracking: false);
+
+
+        var oldCategoryId = feedback.CategoryId;
+
+        var oldPriority = feedback.Priority;
+
+
+
+        var requestedGeoSource = request.GeoSource != null
+            ? NormalizeOptional(request.GeoSource)
+            : null;
+        var hasContentChanges =
+            (request.AreaId.HasValue && request.AreaId.Value != feedback.AreaId) ||
+            (request.CategoryId.HasValue && request.CategoryId != feedback.CategoryId) ||
+            (!string.IsNullOrWhiteSpace(request.Title) &&
+                !string.Equals(request.Title.Trim(), feedback.Title, StringComparison.Ordinal)) ||
+            (!string.IsNullOrWhiteSpace(request.Description) &&
+                !string.Equals(request.Description.Trim(), feedback.Description, StringComparison.Ordinal)) ||
+            (!string.IsNullOrWhiteSpace(request.LocationText) &&
+                !string.Equals(request.LocationText.Trim(), feedback.LocationText, StringComparison.Ordinal)) ||
+            (request.Latitude.HasValue && request.Latitude != feedback.Latitude) ||
+            (request.Longitude.HasValue && request.Longitude != feedback.Longitude) ||
+            (request.LocationAccuracyMeters.HasValue &&
+                request.LocationAccuracyMeters != feedback.LocationAccuracyMeters) ||
+            (request.GeoSource != null &&
+                !string.Equals(requestedGeoSource, feedback.GeoSource, StringComparison.Ordinal)) ||
+            (!string.IsNullOrWhiteSpace(request.Priority) &&
+                !string.Equals(request.Priority.Trim(), feedback.Priority, StringComparison.Ordinal)) ||
+            (request.Severity != null &&
+                !string.Equals(severity, feedback.Severity, StringComparison.Ordinal)) ||
+            (request.DueDate.HasValue && request.DueDate != feedback.DueDate);
+
+
+
+        var updatedAreaId =
+            request.AreaId ?? feedback.AreaId;
+
+
+        var updatedLatitude =
+            request.Latitude ?? feedback.Latitude;
+
+
+        var updatedLongitude =
+            request.Longitude ?? feedback.Longitude;
+
+
+
+        await EnsureAreaMatchesLocationAsync(
+            updatedAreaId,
+            updatedLatitude,
+            updatedLongitude);
+
+
+
+        if (request.AreaId.HasValue &&
+            request.AreaId.Value != feedback.AreaId)
+        {
+            feedback.AreaId =
+                request.AreaId.Value;
+        }
+
+
+
+        if (request.CategoryId.HasValue &&
+            request.CategoryId.Value != feedback.CategoryId)
+        {
+            await EnsureCategoryExistsAsync(
+                request.CategoryId.Value);
+
+
+            feedback.CategoryId =
+                request.CategoryId.Value;
+        }
+
+
+
+        if (!string.IsNullOrWhiteSpace(request.Title))
+        {
+            feedback.Title =
+                request.Title.Trim();
+        }
+
+
+
+        if (!string.IsNullOrWhiteSpace(request.Description))
+        {
+            feedback.Description =
+                request.Description.Trim();
+        }
+
+
+
+        if (!string.IsNullOrWhiteSpace(request.LocationText))
+        {
+            feedback.LocationText =
+                request.LocationText.Trim();
+        }
+
+
+
+        feedback.Latitude =
+            request.Latitude ??
+            feedback.Latitude;
+
+
+        feedback.Longitude =
+            request.Longitude ??
+            feedback.Longitude;
+
+
+
+        feedback.LocationAccuracyMeters =
+            request.LocationAccuracyMeters ??
+            feedback.LocationAccuracyMeters;
+
+
+
+        feedback.GeoSource =
+            request.GeoSource != null
+            ? requestedGeoSource
+            : feedback.GeoSource;
+
+
+
+        feedback.IsLocationVerified = true;
+
+
+
+        if (!string.IsNullOrWhiteSpace(request.Priority))
+        {
+            feedback.Priority =
+                request.Priority.Trim();
+        }
+
+
+
+        feedback.Severity = severity ?? feedback.Severity;
+
+        feedback.DueDate =
+            request.DueDate ??
+            feedback.DueDate;
+
+
+
+        if (hasContentChanges)
+        {
+            feedback.UpdatedAt = DateTime.UtcNow;
+        }
+
+
+
+        /*
+         * Kiểm tra thay đổi ảnh hưởng SLA
+         */
+        var categoryChanged =
+    oldCategoryId != feedback.CategoryId;
+
+        var priorityChanged =
+            !string.Equals(
+                oldPriority,
+                feedback.Priority,
+                StringComparison.OrdinalIgnoreCase);
+
+        /*
+         * SLA đã chuyển sang Incident nên category/priority của Report
+         * không còn tự tính lại deadline. Việc recalculation được thực hiện
+         * khi Incident đổi category/priority trong IncidentService.
+         */
+        _ = categoryChanged;
+        _ = priorityChanged;
+
+
+
+        FeedbackStatusHistory? statusHistory = null;
+        FeedbackStatusHistoryDto? projectedStatusHistory = null;
+        string? oldStatus = null;
+
+
+
+        if (!string.IsNullOrWhiteSpace(request.Status) &&
+            !string.Equals(
+                feedback.Status,
+                request.Status.Trim(),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            var newStatus =
+                FeedbackStatus.Normalize(
+                    request.Status);
+
+
+
+            await EnsureDuplicateMasterStatusInvariantAsync(
+                feedback,
+                newStatus);
+
+
+
+            await EnsureDuplicateReviewCompletedBeforeWorkflowAsync(
+                feedback,
+                newStatus);
+
+
+
+            oldStatus =
+                feedback.Status;
+
+
+
+            if (IsInternalFeedbackStatus(newStatus))
+            {
+                statusHistory =
+                    new FeedbackStatusHistory
+                    {
+                        FeedbackId =
+                            feedbackId,
+
+                        ChangedByUserId =
+                            currentUserId,
+
+                        OldStatus =
+                            oldStatus,
+
+                        NewStatus =
+                            newStatus,
+
+                        Note =
+                            request.StatusNote?.Trim(),
+
+                        ChangedAt =
+                            DateTime.UtcNow
+                    };
+
+                feedback.Status =
+                    newStatus;
+
+                feedback.FeedbackStatusHistories.Add(
+                    statusHistory);
+            }
+            else
+            {
+                projectedStatusHistory = await _incidentService.UpdateStatusFromFeedbackAsync(
+                    feedbackId,
+                    new UpdateIncidentStatusRequest
+                    {
+                        Status = newStatus,
+                        Note = request.StatusNote
+                    },
+                    currentUserId);
+            }
+        }
+
+
+
+        await _uow.SaveAsync();
+
+
+
+        if (statusHistory != null &&
+            oldStatus != null)
+        {
+            await SendStatusUpdatedNotificationAsync(
+                feedback,
+                statusHistory);
+        }
+
+
+
+
+        var activeIncidentId = feedback.IncidentReportLinks
+            .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+            .Select(link => (Guid?)link.IncidentId)
+            .SingleOrDefault();
+        if (hasContentChanges && activeIncidentId.HasValue)
+        {
+            await _incidentService.NotifyContentUpdatedAsync(activeIncidentId.Value);
+        }
+        else if (hasContentChanges)
+        {
+            await SendFeedbackNotificationAsync(
+                feedback,
+                "Phản ánh đã được nhân viên cập nhật",
+                $"Thông tin phản ánh \"{feedback.Title}\" đã được nhân viên cập nhật.");
+        }
+
+
+
+        return await GetFeedbackDetailAsync(
+            currentUserId,
+            feedbackId);
+    }
+
+    public async Task DeleteAsync(Guid userId, Guid feedbackId)
+    {
+        var feedback = await GetOwnedFeedbackWithDetailsAsync(userId, feedbackId, asNoTracking: false);
+        _uow.GetRepository<Feedback>().Delete(feedback);
+        await _uow.SaveAsync();
+    }
+
+    public async Task DeleteByManagementAsync(Guid feedbackId)
+    {
+        var feedbackRepository = _uow.GetRepository<Feedback>();
+        var feedback = await feedbackRepository.Entities
+            .FirstOrDefaultAsync(item => item.FeedbackId == feedbackId)
+            ?? throw new Exception("Không tìm thấy feedback.");
+
+        var duplicateCandidateRepository = _uow.GetRepository<FeedbackDuplicateCandidate>();
+        var referencingCandidates = await duplicateCandidateRepository.Entities
+            .Where(candidate => candidate.PotentialParentFeedbackId == feedbackId)
+            .ToListAsync();
+
+        if (referencingCandidates.Count > 0)
+        {
+            duplicateCandidateRepository.DeleteRange(referencingCandidates);
+        }
+
+        feedbackRepository.Delete(feedback);
+        await _uow.SaveAsync();
+    }
+
+    public async Task<FeedbackDetailDto> AddAttachmentsAsync(
+        Guid userId,
+        Guid feedbackId,
+        IReadOnlyCollection<UploadedFeedbackAttachmentDto> attachments)
+    {
+        if (attachments.Count == 0)
+        {
+            throw new Exception("Vui lòng chọn ít nhất một file.");
+        }
+
+        var feedback = await GetOwnedFeedbackWithDetailsAsync(userId, feedbackId, asNoTracking: false);
+        var now = DateTime.UtcNow;
+
+        foreach (var attachment in attachments)
+        {
+            feedback.FeedbackAttachments.Add(new FeedbackAttachment
+            {
+                FeedbackId = feedbackId,
+                FileUrl = attachment.FileUrl,
+                FileType = attachment.FileType,
+                UploadedAt = now
+            });
+        }
+
+        feedback.UpdatedAt = now;
+        await _uow.SaveAsync();
+
+        return await GetMyFeedbackDetailAsync(userId, feedbackId);
+    }
+
+    public async Task DeleteAttachmentAsync(Guid userId, Guid feedbackId, int attachmentId)
+    {
+        var feedback = await GetOwnedFeedbackWithDetailsAsync(userId, feedbackId, asNoTracking: false);
+        var attachment = feedback.FeedbackAttachments.FirstOrDefault(a => a.AttachmentId == attachmentId);
+
+        if (attachment == null)
+        {
+            throw new Exception("Không tìm thấy attachment.");
+        }
+
+        _uow.GetRepository<FeedbackAttachment>().Delete(attachment);
+        feedback.UpdatedAt = DateTime.UtcNow;
+        await _uow.SaveAsync();
+    }
+
+    public async Task<FeedbackStatusHistoryDto>
+    UpdateStatusByStaffOrAdminAsync(
+        Guid currentUserId,
+        Guid feedbackId,
+        UpdateFeedbackStatusRequest request)
+    {
+        await ManagementAccessRules.EnsureManagerFeedbackOperationAsync(
+            _uow,
+            feedbackId,
+            currentUserId);
+        if (string.IsNullOrWhiteSpace(request.Status))
+        {
+            throw new Exception(
+                "Status là bắt buộc.");
+        }
+
+        var feedback = await GetFeedbackWithDetailsAsync(
+            feedbackId,
+            asNoTracking: false);
+
+        var newStatus = FeedbackStatus.Normalize(
+            request.Status);
+
+        if (newStatus != FeedbackStatus.Rejected &&
+            newStatus != FeedbackStatus.Cancelled)
+        {
+            throw new Exception(
+                "Endpoint trạng thái chung chỉ dùng để từ chối hoặc hủy phản ánh. " +
+                "Xác nhận phản ánh phải đi qua endpoint verify để kiểm tra trùng và khởi tạo SLA. " +
+                "Các trạng thái xử lý phải đi qua luồng phân công, bên thứ ba và phê duyệt.");
+        }
+
+        if (string.Equals(
+                feedback.Status,
+                newStatus,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception(
+                $"Feedback đã ở trạng thái {newStatus}.");
+        }
+
+        await EnsureDuplicateMasterStatusInvariantAsync(feedback, newStatus);
+        await EnsureDuplicateReviewCompletedBeforeWorkflowAsync(feedback, newStatus);
+
+        if (!IsInternalFeedbackStatus(newStatus))
+        {
+            var projectedHistory = await _incidentService.UpdateStatusFromFeedbackAsync(
+                feedbackId,
+                new UpdateIncidentStatusRequest
+                {
+                    Status = newStatus,
+                    Note = request.Note
+                },
+                currentUserId);
+
+            return projectedHistory;
+        }
+
+        var now = DateTime.UtcNow;
+        var oldStatus = feedback.Status;
+
+        var history = new FeedbackStatusHistory
+        {
+            FeedbackId = feedbackId,
+            ChangedByUserId = currentUserId,
+            OldStatus = oldStatus,
+            NewStatus = newStatus,
+            Note = request.Note?.Trim(),
+            ChangedAt = now
+        };
+
+        feedback.Status = newStatus;
+        feedback.UpdatedAt = now;
+        feedback.FeedbackStatusHistories.Add(history);
+
+        await _uow.SaveAsync();
+
+        await SendStatusUpdatedNotificationAsync(
+            feedback,
+            history);
+
+        return new FeedbackStatusHistoryDto
+        {
+            HistoryId = history.HistoryId,
+            FeedbackId = history.FeedbackId,
+            ChangedByUserId = history.ChangedByUserId,
+            OldStatus = history.OldStatus,
+            NewStatus = history.NewStatus,
+            Note = history.Note,
+            ChangedAt = history.ChangedAt
+        };
+    }
+
+
+    public async Task<FeedbackCommentDto> AddCommentAsync(Guid userId, Guid feedbackId, FeedbackCommentCreateRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Content))
+        {
+            throw new Exception("Nội dung comment là bắt buộc.");
+        }
+
+        await EnsureFeedbackExistsAsync(feedbackId);
+
+        var comment = new FeedbackComment
+        {
+            FeedbackId = feedbackId,
+            UserId = userId,
+            Content = request.Content.Trim(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _uow.GetRepository<FeedbackComment>().AddAsync(comment);
+        await _uow.SaveAsync();
+
+        var saved = await _uow.GetRepository<FeedbackComment>().FindAsync(
+            c => c.CommentId == comment.CommentId,
+            q => q.Include(c => c.User));
+
+        return MapComment(saved!);
+    }
+
+    public async Task SupportAsync(Guid userId, Guid feedbackId)
+    {
+        await EnsureFeedbackExistsAsync(feedbackId);
+
+        var supportRepo = _uow.GetRepository<FeedbackSupport>();
+        var existingSupport = await supportRepo.FindAsync(
+            s => s.FeedbackId == feedbackId && s.UserId == userId,
+            include: null);
+
+        if (existingSupport != null)
+        {
+            return;
+        }
+
+        await supportRepo.AddAsync(new FeedbackSupport
+        {
+            FeedbackId = feedbackId,
+            UserId = userId,
+            CreatedAt = DateTime.UtcNow
+        });
+        await _uow.SaveAsync();
+    }
+
+    public async Task UnsupportAsync(Guid userId, Guid feedbackId)
+    {
+        var support = await _uow.GetRepository<FeedbackSupport>().FindAsync(
+            s => s.FeedbackId == feedbackId && s.UserId == userId,
+            include: null);
+
+        if (support == null)
+        {
+            return;
+        }
+
+        _uow.GetRepository<FeedbackSupport>().Delete(support);
+        await _uow.SaveAsync();
+    }
+
+    private static readonly string[] InternalFeedbackStatuses =
+    [
+        FeedbackStatus.Submitted,
+        FeedbackStatus.AiReviewed
+    ];
+
+    private static bool IsInternalFeedbackStatus(string status)
+    {
+        return InternalFeedbackStatuses.Any(internalStatus =>
+            string.Equals(internalStatus, status, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task EnsureDuplicateMasterStatusInvariantAsync(
+        Feedback feedback,
+        string newStatus)
+    {
+        if (FeedbackStatus.IsEligibleDuplicateMasterStatus(newStatus))
+        {
+            return;
+        }
+
+        var hasLinkedDuplicates = await _uow.GetRepository<Feedback>().Entities
+            .AsNoTracking()
+            .AnyAsync(child => child.ParentTicketId == feedback.FeedbackId);
+
+        if (!hasLinkedDuplicates)
+        {
+            hasLinkedDuplicates = await _uow
+                .GetRepository<FeedbackDuplicateCandidate>()
+                .Entities
+                .AsNoTracking()
+                .AnyAsync(candidate =>
+                    candidate.PotentialParentFeedbackId == feedback.FeedbackId &&
+                    candidate.Status == "Confirmed");
+        }
+
+        if (hasLinkedDuplicates)
+        {
+            throw new Exception(
+                "Phản ánh đang là phản ánh chính của các phản ánh trùng nên phải giữ trạng thái công khai, hợp lệ.");
+        }
+    }
+
+    private async Task EnsureDuplicateReviewCompletedBeforeWorkflowAsync(
+        Feedback feedback,
+        string newStatus)
+    {
+        if (feedback.ParentTicketId.HasValue)
+        {
+            throw new Exception(
+                "Phản ánh đã được đánh dấu trùng và được xử lý theo phản ánh chính; không thể cập nhật quy trình riêng.");
+        }
+
+        if (string.Equals(newStatus, FeedbackStatus.Submitted, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(newStatus, FeedbackStatus.AiReviewed, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var hasPendingDuplicateReview = await _uow
+            .GetRepository<FeedbackDuplicateCandidate>()
+            .Entities
+            .AsNoTracking()
+            .AnyAsync(candidate =>
+                candidate.FeedbackId == feedback.FeedbackId &&
+                candidate.Status == "Pending");
+
+        if (hasPendingDuplicateReview)
+        {
+            throw new Exception(
+                "Phản ánh đang chờ xác nhận trùng; cần xác nhận hoặc từ chối đề xuất trước khi tiếp tục quy trình xử lý.");
+        }
+    }
+
+    private async Task<Feedback> GetFeedbackWithDetailsAsync(Guid feedbackId, bool asNoTracking)
+    {
+        IQueryable<Feedback> query = _uow.GetRepository<Feedback>().Entities;
+
+        if (asNoTracking)
+        {
+            query = query.AsNoTrackingWithIdentityResolution();
+        }
+
+        var feedback = await query
+            .Include(f => f.User)
+            .Include(f => f.Area)
+            .Include(f => f.Category)
+            .Include(f => f.FeedbackAttachments)
+            .Include(f => f.FeedbackComments)
+                .ThenInclude(c => c.User)
+            .Include(f => f.FeedbackStatusHistories)
+                .ThenInclude(h => h.ChangedByUser)
+            .Include(f => f.FeedbackSupports)
+            .Include(f => f.IncidentReportLinks)
+                .ThenInclude(link => link.Incident)
+                    .ThenInclude(incident => incident.IncidentReportLinks)
+            .FirstOrDefaultAsync(f => f.FeedbackId == feedbackId);
+
+        return feedback ?? throw new Exception("Không tìm thấy feedback.");
+    }
+
+    private async Task SendStatusUpdatedNotificationAsync(Feedback feedback, FeedbackStatusHistory history)
+    {
+        var message = (history.OldStatus, history.NewStatus) switch
+        {
+            (FeedbackStatus.Submitted, FeedbackStatus.AiReviewed) =>
+                "Phản ánh đã được AI phân tích",
+
+            (FeedbackStatus.Submitted, FeedbackStatus.Verified) or
+            (FeedbackStatus.AiReviewed, FeedbackStatus.Verified) =>
+                "Phản ánh của bạn đã được xác thực",
+
+            (FeedbackStatus.Verified, FeedbackStatus.Assigned) =>
+                "Phản ánh của bạn đã được phân công cho đơn vị xử lý",
+
+            (FeedbackStatus.Assigned, FeedbackStatus.InProgress) =>
+                "Đơn vị xử lý đang xử lý phản ánh của bạn.",
+
+            (FeedbackStatus.InProgress, FeedbackStatus.SubmittedForApproval) =>
+                "Đơn vị xử lý đã gửi minh chứng hoàn thành",
+
+            (FeedbackStatus.SubmittedForApproval, FeedbackStatus.Approved) =>
+                "Hệ thống đã xác nhận đơn vị xử lý đã hoàn thành",
+
+            (FeedbackStatus.Approved, FeedbackStatus.Closed) =>
+                "Phản ánh của bạn đã được hoàn thành",
+
+            _ =>
+                $"Phản ánh \"{feedback.Title}\" đã chuyển trạng thái từ \"{history.OldStatus}\" sang \"{history.NewStatus}\"."
+        };
+
+        var incidentId = feedback.IncidentReportLinks
+            .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+            .Select(link => (Guid?)link.IncidentId)
+            .FirstOrDefault();
+
+        await _notificationService.SendAsync(
+            feedback.UserId,
+            "Trạng thái phản ánh đã được cập nhật",
+            message,
+            NotificationType.TicketUpdated,
+            incidentId.HasValue
+                ? $"/community/incidents/{incidentId.Value}"
+                : $"/feedbacks/{feedback.FeedbackId}",
+            incidentId,
+            incidentId.HasValue ? "Incident" : "Feedback",
+            (incidentId ?? feedback.FeedbackId).ToString());
+    }
+
+    private async Task SendFeedbackNotificationAsync(
+        Feedback feedback,
+        string title,
+        string message,
+        string? targetUrl = null,
+        Guid? incidentIdOverride = null)
+    {
+        var incidentId = incidentIdOverride ?? feedback.IncidentReportLinks
+            .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+            .Select(link => (Guid?)link.IncidentId)
+            .FirstOrDefault();
+
+        await _notificationService.SendAsync(
+            feedback.UserId,
+            title,
+            message,
+            NotificationType.TicketUpdated,
+            targetUrl ?? (incidentId.HasValue
+                ? $"/community/incidents/{incidentId.Value}"
+                : $"/feedbacks/{feedback.FeedbackId}"),
+            incidentId,
+            incidentId.HasValue ? "Incident" : "Feedback",
+            (incidentId ?? feedback.FeedbackId).ToString());
+    }
+
+    private async Task<Feedback> GetOwnedFeedbackWithDetailsAsync(Guid userId, Guid feedbackId, bool asNoTracking)
+    {
+        IQueryable<Feedback> query = _uow.GetRepository<Feedback>().Entities;
+
+        if (asNoTracking)
+        {
+            query = query.AsNoTrackingWithIdentityResolution();
+        }
+
+        var feedback = await query
+            .Include(f => f.User)
+            .Include(f => f.Area)
+            .Include(f => f.Category)
+            .Include(f => f.FeedbackAttachments)
+            .Include(f => f.FeedbackComments)
+                .ThenInclude(c => c.User)
+            .Include(f => f.FeedbackStatusHistories)
+                .ThenInclude(h => h.ChangedByUser)
+            .Include(f => f.FeedbackSupports)
+            .Include(f => f.IncidentReportLinks)
+                .ThenInclude(link => link.Incident)
+                    .ThenInclude(incident => incident.IncidentReportLinks)
+            .FirstOrDefaultAsync(f => f.FeedbackId == feedbackId && f.UserId == userId);
+
+        return feedback ?? throw new Exception("Không tìm thấy feedback.");
+    }
+
+    private async Task EnsureFeedbackExistsAsync(Guid feedbackId)
+    {
+        var exists = await _uow.GetRepository<Feedback>().Entities
+            .AsNoTracking()
+            .AnyAsync(f => f.FeedbackId == feedbackId);
+
+        if (!exists)
+        {
+            throw new Exception("Không tìm thấy feedback.");
+        }
+    }
+
+    private async Task<Guid> GetActiveIncidentIdAsync(Guid feedbackId)
+    {
+        return await _uow.GetRepository<IncidentReportLink>().Entities
+            .AsNoTracking()
+            .Where(link =>
+                link.FeedbackId == feedbackId &&
+                link.LinkStatus == IncidentLinkStatus.Active &&
+                link.Incident.MergedIntoIncidentId == null)
+            .Select(link => (Guid?)link.IncidentId)
+            .SingleOrDefaultAsync()
+            ?? throw new Exception("Feedback does not belong to an active incident.");
+    }
+
+    private async Task EnsureCategoryExistsAsync(int categoryId)
+    {
+        var exists = await _uow.GetRepository<UrbanServiceCategory>().Entities
+            .AsNoTracking()
+            .AnyAsync(c => c.CategoryId == categoryId && c.IsActive);
+
+        if (!exists)
+        {
+            throw new Exception("Category không tồn tại hoặc đã bị khóa.");
+        }
+    }
+
+    private async Task EnsureAreaExistsAsync(int areaId)
+    {
+        var exists = await _uow.GetRepository<OperatingArea>().Entities
+            .AsNoTracking()
+            .AnyAsync(a => a.AreaId == areaId && a.IsActive);
+
+        if (!exists)
+        {
+            throw new Exception("Area khong ton tai hoac da bi khoa.");
+        }
+    }
+
+    private async Task EnsureAreaMatchesLocationAsync(int areaId, decimal? latitude, decimal? longitude)
+    {
+        var area = await _uow.GetRepository<OperatingArea>().Entities
+            .AsNoTracking()
+            .Where(a => a.AreaId == areaId && a.IsActive)
+            .Select(a => new
+            {
+                a.AreaId,
+                a.AreaName,
+                a.BoundaryGeoJson
+            })
+            .FirstOrDefaultAsync();
+
+        if (area == null)
+        {
+            throw new Exception("Area khong ton tai hoac da bi khoa.");
+        }
+
+        if (!latitude.HasValue || !longitude.HasValue)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(area.BoundaryGeoJson))
+        {
+            throw new Exception($"Khu vực \"{area.AreaName}\" chưa được cấu hình ranh giới bản đồ.");
+        }
+
+        if (!IsPointInsideGeoJsonBoundary(latitude.Value, longitude.Value, area.BoundaryGeoJson))
+        {
+            throw new Exception($"Vị trí đã chọn không nằm trong khu vực \"{area.AreaName}\".");
+        }
+    }
+
+    private static bool IsPointInsideGeoJsonBoundary(decimal latitude, decimal longitude, string boundaryGeoJson)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(boundaryGeoJson);
+            return IsPointInsideGeoJsonElement(document.RootElement, (double)latitude, (double)longitude);
+        }
+        catch (JsonException)
+        {
+            throw new Exception("BoundaryGeoJson của khu vực không hợp lệ.");
+        }
+    }
+
+    private static bool IsPointInsideGeoJsonElement(JsonElement element, double latitude, double longitude)
+    {
+        if (!element.TryGetProperty("type", out var typeElement))
+        {
+            return false;
+        }
+
+        var type = typeElement.GetString();
+
+        if (string.Equals(type, "FeatureCollection", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!element.TryGetProperty("features", out var features) || features.ValueKind != JsonValueKind.Array)
+            {
+                return false;
+            }
+
+            foreach (var feature in features.EnumerateArray())
+            {
+                if (IsPointInsideGeoJsonElement(feature, latitude, longitude))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if (string.Equals(type, "Feature", StringComparison.OrdinalIgnoreCase))
+        {
+            return element.TryGetProperty("geometry", out var geometry) &&
+                IsPointInsideGeoJsonElement(geometry, latitude, longitude);
+        }
+
+        if (!element.TryGetProperty("coordinates", out var coordinates))
+        {
+            return false;
+        }
+
+        if (string.Equals(type, "Polygon", StringComparison.OrdinalIgnoreCase))
+        {
+            return IsPointInsidePolygonCoordinates(coordinates, latitude, longitude);
+        }
+
+        if (string.Equals(type, "MultiPolygon", StringComparison.OrdinalIgnoreCase))
+        {
+            if (coordinates.ValueKind != JsonValueKind.Array)
+            {
+                return false;
+            }
+
+            foreach (var polygon in coordinates.EnumerateArray())
+            {
+                if (IsPointInsidePolygonCoordinates(polygon, latitude, longitude))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsPointInsidePolygonCoordinates(JsonElement polygonCoordinates, double latitude, double longitude)
+    {
+        if (polygonCoordinates.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        var isInsideOuterRing = false;
+        var isInsideHole = false;
+        var ringIndex = 0;
+
+        foreach (var ring in polygonCoordinates.EnumerateArray())
+        {
+            var isInsideRing = IsPointInsideLinearRing(ring, latitude, longitude);
+
+            if (ringIndex == 0)
+            {
+                isInsideOuterRing = isInsideRing;
+            }
+            else if (isInsideRing)
+            {
+                isInsideHole = true;
+                break;
+            }
+
+            ringIndex++;
+        }
+
+        return isInsideOuterRing && !isInsideHole;
+    }
+
+    private static bool IsPointInsideLinearRing(JsonElement ring, double latitude, double longitude)
+    {
+        if (ring.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        var points = ring.EnumerateArray()
+            .Where(point => point.ValueKind == JsonValueKind.Array && point.GetArrayLength() >= 2)
+            .Select(point => new
+            {
+                Longitude = point[0].GetDouble(),
+                Latitude = point[1].GetDouble()
+            })
+            .ToList();
+
+        if (points.Count < 3)
+        {
+            return false;
+        }
+
+        var inside = false;
+        var previousIndex = points.Count - 1;
+
+        for (var currentIndex = 0; currentIndex < points.Count; currentIndex++)
+        {
+            var current = points[currentIndex];
+            var previous = points[previousIndex];
+
+            if (IsPointOnSegment(
+                longitude,
+                latitude,
+                previous.Longitude,
+                previous.Latitude,
+                current.Longitude,
+                current.Latitude))
+            {
+                return true;
+            }
+
+            var intersects = current.Latitude > latitude != previous.Latitude > latitude &&
+                longitude < (previous.Longitude - current.Longitude) *
+                (latitude - current.Latitude) /
+                (previous.Latitude - current.Latitude) +
+                current.Longitude;
+
+            if (intersects)
+            {
+                inside = !inside;
+            }
+
+            previousIndex = currentIndex;
+        }
+
+        return inside;
+    }
+
+    private static bool IsPointOnSegment(
+        double pointLongitude,
+        double pointLatitude,
+        double startLongitude,
+        double startLatitude,
+        double endLongitude,
+        double endLatitude)
+    {
+        const double epsilon = 0.0000001;
+
+        var crossProduct = (pointLatitude - startLatitude) * (endLongitude - startLongitude) -
+            (pointLongitude - startLongitude) * (endLatitude - startLatitude);
+
+        if (Math.Abs(crossProduct) > epsilon)
+        {
+            return false;
+        }
+
+        var dotProduct = (pointLongitude - startLongitude) * (endLongitude - startLongitude) +
+            (pointLatitude - startLatitude) * (endLatitude - startLatitude);
+
+        if (dotProduct < -epsilon)
+        {
+            return false;
+        }
+
+        var squaredLength = Math.Pow(endLongitude - startLongitude, 2) +
+            Math.Pow(endLatitude - startLatitude, 2);
+
+        return dotProduct <= squaredLength + epsilon;
+    }
+
+    private static FeedbackDetailDto MapDetail(Feedback feedback, Guid userId)
+    {
+        var activeIncidentLink = feedback.IncidentReportLinks
+            .Where(link => link.LinkStatus == IncidentLinkStatus.Active)
+            .OrderByDescending(link => link.LinkedAt)
+            .FirstOrDefault();
+
+        return new FeedbackDetailDto
+        {
+            FeedbackId = feedback.FeedbackId,
+            UserId = feedback.UserId,
+            UserName = feedback.User?.FullName,
+            AreaId = feedback.AreaId,
+            AreaName = feedback.Area?.AreaName,
+            CategoryId = feedback.CategoryId,
+            CategoryName = feedback.Category?.CategoryName,
+            Title = feedback.Title,
+            Description = feedback.Description,
+            LocationText = feedback.LocationText,
+            Latitude = feedback.Latitude,
+            Longitude = feedback.Longitude,
+            LocationAccuracyMeters = feedback.LocationAccuracyMeters,
+            GeoSource = feedback.GeoSource,
+            SubmissionChannel = feedback.SubmissionChannel,
+            IsLocationVerified = feedback.IsLocationVerified,
+            Priority = feedback.Priority,
+            Severity = feedback.Severity,
+            Status = feedback.Status,
+            DueDate = feedback.DueDate,
+            CreatedAt = feedback.CreatedAt,
+            UpdatedAt = feedback.UpdatedAt,
+            AttachmentCount = feedback.FeedbackAttachments.Count,
+            CommentCount = feedback.FeedbackComments.Count,
+            SupportCount = feedback.FeedbackSupports.Count,
+            DuplicateWarning = false,
+            PotentialDuplicate = null,
+            ParentTicketId = feedback.ParentTicketId,
+            IsMasterTicket = feedback.IsMasterTicket,
+            IncidentId = activeIncidentLink?.IncidentId,
+            IncidentReportCount = activeIncidentLink?.Incident.IncidentReportLinks
+                .Count(link => link.LinkStatus == IncidentLinkStatus.Active) ?? 0,
+            IncidentLinkStatus = activeIncidentLink?.LinkStatus,
+            IsSupportedByCurrentUser = feedback.FeedbackSupports.Any(s => s.UserId == userId),
+            Attachments = feedback.FeedbackAttachments
+                .OrderBy(a => a.UploadedAt)
+                .Select(a => new FeedbackAttachmentDto
+                {
+                    AttachmentId = a.AttachmentId,
+                    FileUrl = a.FileUrl,
+                    FileType = a.FileType,
+                    UploadedAt = a.UploadedAt
+                })
+                .ToList(),
+            Comments = feedback.FeedbackComments
+                .OrderBy(c => c.CreatedAt)
+                .Select(MapComment)
+                .ToList(),
+            StatusHistories = feedback.FeedbackStatusHistories
+                .OrderByDescending(h => h.ChangedAt)
+                .Select(h => new FeedbackStatusHistoryDto
+                {
+                    HistoryId = h.HistoryId,
+                    FeedbackId = h.FeedbackId,
+                    ChangedByUserId = h.ChangedByUserId,
+                    ChangedByUserName = h.ChangedByUser?.FullName,
+                    OldStatus = h.OldStatus,
+                    NewStatus = h.NewStatus,
+                    Note = h.Note,
+                    ChangedAt = h.ChangedAt
+                })
+                .ToList()
+        };
+    }
+
+    private async Task PopulateDuplicateInfoAsync(FeedbackListItemDto dto)
+    {
+        var duplicateState = await _uow.GetRepository<Feedback>().Entities
+            .AsNoTracking()
+            .Where(feedback => feedback.FeedbackId == dto.FeedbackId)
+            .Select(feedback => new
+            {
+                feedback.ParentTicketId,
+                feedback.IsMasterTicket
+            })
+            .FirstOrDefaultAsync();
+
+        if (duplicateState is not null)
+        {
+            dto.ParentTicketId = duplicateState.ParentTicketId;
+            dto.IsMasterTicket = duplicateState.IsMasterTicket;
+        }
+
+        var pendingCandidate = await _uow.GetRepository<FeedbackDuplicateCandidate>().Entities
+            .AsNoTracking()
+            .Where(candidate =>
+                candidate.FeedbackId == dto.FeedbackId &&
+                candidate.Status == "Pending")
+            .OrderByDescending(candidate => candidate.ConfidenceScore ?? 0m)
+            .ThenByDescending(candidate => candidate.CreatedAt)
+            .Select(candidate => new FeedbackPotentialDuplicateDto
+            {
+                DuplicateCandidateId = candidate.DuplicateCandidateId,
+                FeedbackId = candidate.FeedbackId,
+                PotentialParentFeedbackId = candidate.PotentialParentFeedbackId,
+                PotentialParentTitle = candidate.PotentialParentFeedback.Title,
+                PotentialParentLocationText = candidate.PotentialParentFeedback.LocationText,
+                Status = candidate.Status,
+                ConfidenceScore = candidate.ConfidenceScore,
+                Reason = candidate.Reason,
+                CreatedAt = candidate.CreatedAt
+            })
+            .FirstOrDefaultAsync();
+
+        dto.PotentialDuplicate = pendingCandidate;
+        dto.DuplicateWarning = pendingCandidate is not null;
+    }
+
+    private static FeedbackCommentDto MapComment(FeedbackComment comment)
+    {
+        return new FeedbackCommentDto
+        {
+            CommentId = comment.CommentId,
+            FeedbackId = comment.FeedbackId,
+            UserId = comment.UserId,
+            UserName = comment.User?.FullName,
+            Content = comment.Content,
+            CreatedAt = comment.CreatedAt
+        };
+    }
+
+    private async Task<IncidentProviderAssignmentDto> GetProviderAssignmentDtoAsync(int providerAssignmentId)
+    {
+        var report = await _uow.GetRepository<FeedbackProviderReport>().Entities
+            .AsNoTracking()
+            .Include(r => r.Coordinator)
+            .Include(r => r.ReportedByUser)
+            .Include(r => r.ProviderContactLogs)
+            .Include(r => r.CompletionDocuments)
+            .FirstOrDefaultAsync(r => r.ProviderReportId == providerAssignmentId)
+            ?? throw new Exception("Provider report khong ton tai.");
+
+        return MapProviderAssignment(report);
+    }
+
+    private async Task EnsureProviderReportExistsAsync(int providerReportId)
+    {
+        var exists = await _uow.GetRepository<FeedbackProviderReport>().Entities
+            .AsNoTracking()
+            .AnyAsync(r => r.ProviderReportId == providerReportId);
+
+        if (!exists)
+        {
+            throw new Exception("Provider report khong ton tai.");
+        }
+    }
+
+    private static IncidentProviderAssignmentDto MapProviderAssignment(FeedbackProviderReport report)
+    {
+        return new IncidentProviderAssignmentDto
+        {
+            ProviderAssignmentId = report.ProviderReportId,
+            IncidentId = report.IncidentId,
+            CoordinatorId = report.CoordinatorId,
+            ProviderName = report.Coordinator?.ProviderName,
+            CoordinatorName = report.Coordinator?.CoordinatorName,
+            PhoneNumber = report.Coordinator?.PhoneNumber,
+            Email = report.Coordinator?.Email,
+            Address = report.Coordinator?.Address,
+            Note = report.Coordinator?.Note,
+            AssignedByStaffUserId = report.ReportedByUserId,
+            AssignedByStaffUserName = report.ReportedByUser?.FullName,
+            ReportStatus = report.ReportStatus,
+            DueDate = report.DueDate,
+            ReportNote = report.ReportNote,
+            AssignedAt = report.ReportedAt,
+            UpdatedAt = report.UpdatedAt,
+            ContactLogCount = report.ProviderContactLogs.Count,
+            CompletionDocumentCount = report.CompletionDocuments.Count
+        };
+    }
+
+    private static ProviderContactLogDto MapContactLog(ProviderContactLog log)
+    {
+        return new ProviderContactLogDto
+        {
+            ContactLogId = log.ContactLogId,
+            ProviderAssignmentId = log.ProviderReportId,
+            CoordinatorId = log.CoordinatorId,
+            ProviderName = log.Coordinator?.ProviderName,
+            CoordinatorName = log.Coordinator?.CoordinatorName,
+            PhoneNumber = log.Coordinator?.PhoneNumber,
+            Email = log.Coordinator?.Email,
+            Address = log.Coordinator?.Address,
+            Note = log.Coordinator?.Note,
+            ContactedByUserId = log.ContactedByUserId,
+            ContactedByUserName = log.ContactedByUser?.FullName,
+            ContactMethod = log.ContactMethod,
+            ContactResult = log.ContactResult,
+            ContactNote = log.ContactNote,
+            ContactedAt = log.ContactedAt
+        };
+    }
+
+    private static CompletionDocumentDto MapCompletionDocument(CompletionDocument document)
+    {
+        return new CompletionDocumentDto
+        {
+            CompletionDocumentId = document.CompletionDocumentId,
+            ProviderAssignmentId = document.ProviderReportId,
+            IncidentId = document.IncidentId,
+            CoordinatorId = document.CoordinatorId,
+            ProviderName = document.Coordinator?.ProviderName,
+            UploadedByUserId = document.UploadedByUserId,
+            UploadedByUserName = document.UploadedByUser?.FullName,
+            FileUrl = document.FileUrl,
+            FileType = document.FileType,
+            Description = document.Description,
+            ReceivedAt = document.ReceivedAt
+        };
+    }
+
+    private static FeedbackResolutionDto MapResolution(
+    FeedbackResolution resolution)
+    {
+        return new FeedbackResolutionDto
+        {
+            ResolutionId = resolution.ResolutionId,
+            IncidentId = resolution.IncidentId,
+            ProviderAssignmentId = resolution.ProviderReportId,
+            CreatedByStaffUserId = resolution.CreatedByStaffUserId,
+            CreatedByStaffUserName = resolution.CreatedByStaffUser?.FullName,
+            ResolutionSummary = resolution.ResolutionSummary,
+            ActionTaken = resolution.ActionTaken,
+            ResultNote = resolution.ResultNote,
+            ResolvedAt = resolution.ResolvedAt,
+            Status = resolution.Status,
+            IncidentStatus = resolution.Incident.Status,
+            ReviewReason = resolution.ReviewReason,
+            ReviewedBy = resolution.ReviewedByManager == null
+                ? null
+                : new ResolutionReviewerDto
+                {
+                    UserId = resolution.ReviewedByManager.UserId,
+                    Name = resolution.ReviewedByManager.FullName
+                },
+            ReviewedAt = resolution.ReviewedAt,
+
+            CompletionDocuments =
+                resolution.ProviderReport?.CompletionDocuments?
+                    .OrderByDescending(x => x.ReceivedAt)
+                    .Select(MapCompletionDocument)
+                    .ToList()
+                ?? []
+        };
+    }
+
+    private static FeedbackResolutionReviewDto MapResolutionReview(FeedbackResolutionReview review)
+    {
+        return new FeedbackResolutionReviewDto
+        {
+            ReviewId = review.ReviewId,
+            FeedbackId = review.FeedbackId,
+            UserId = review.UserId,
+            UserName = review.User?.FullName,
+            Rating = review.Rating ?? 0,
+            IsSatisfied = review.IsSatisfied ?? false,
+            Comment = review.Comment,
+            CreatedAt = review.CreatedAt
+        };
+    }
+
+    private static IReadOnlyCollection<string> ParseAnalysisKeywords(string? keywords)
+    {
+        if (string.IsNullOrWhiteSpace(keywords))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(keywords) ?? [];
+        }
+        catch (JsonException)
+        {
+            return keywords
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+    }
+
+    private static void ValidateCreate(FeedbackCreateRequest request)
+    {
+        if (request.AreaId <= 0)
+        {
+            throw new Exception("AreaId la bat buoc.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            throw new Exception("Title là bắt buộc.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Description))
+        {
+            throw new Exception("Description là bắt buộc.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.LocationText))
+        {
+            throw new Exception("LocationText là bắt buộc.");
+        }
+    }
+
+    private static string NormalizeOrDefault(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    /// <summary>
+    /// Điều kiện để người dân gửi phản ánh từ web: đã xác thực số điện thoại, và
+    /// chưa chạm trần số phản ánh trong ngày.
+    ///
+    /// Xác thực là nơi ràng buộc trách nhiệm — phản ánh sai sự thật còn truy được
+    /// đầu mối. Trần theo ngày là để một tài khoản không làm ngập hàng đợi tiếp
+    /// nhận; nhân sự xử lý là người thật với thời gian hữu hạn.
+    ///
+    /// Messenger và Zalo đi qua tài khoản dịch vụ dùng chung do admin quản lý, định
+    /// danh người gửi nằm ở định danh kênh chứ không ở tài khoản, nên đếm theo tài
+    /// khoản sẽ chặn nhầm toàn bộ người gửi qua hai kênh đó.
+    /// </summary>
+    private async Task EnsureCitizenCanSubmitWebFeedbackAsync(
+        Guid userId,
+        string submissionChannel)
+    {
+        if (!string.Equals(
+                submissionChannel,
+                FeedbackSubmissionChannel.Web,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var isVerified = await _uow.GetRepository<User>().Entities
+            .AsNoTracking()
+            .Where(user => user.UserId == userId)
+            .Select(user => (bool?)user.IsVerified)
+            .FirstOrDefaultAsync();
+
+        if (isVerified != true)
+        {
+            throw new BusinessRuleException(
+                BusinessErrorCode.PhoneNotVerified,
+                "Bạn cần xác thực số điện thoại trước khi gửi phản ánh.",
+                StatusCodes.Status403Forbidden);
+        }
+
+        var dailyLimit = _feedbackLimitOptions.DailyPerUser;
+        if (dailyLimit <= 0)
+        {
+            return;
+        }
+
+        /*
+         * Mốc ngày lấy theo giờ Việt Nam rồi quy về UTC để so sánh, vì cột thời gian
+         * lưu UTC. Dùng thẳng ngày UTC thì trần sẽ reset lúc 7 giờ sáng giờ Việt Nam,
+         * không khớp với cách người dùng hiểu "mỗi ngày".
+         */
+        var nowVietnam = DateTime.UtcNow.Add(VietnamOffset);
+        var startOfDayUtc = nowVietnam.Date.Subtract(VietnamOffset);
+        var endOfDayUtc = startOfDayUtc.AddDays(1);
+
+        var submittedToday = await _uow.GetRepository<Feedback>().Entities
+            .AsNoTracking()
+            .CountAsync(feedback =>
+                feedback.UserId == userId &&
+                feedback.SubmissionChannel == FeedbackSubmissionChannel.Web &&
+                feedback.CreatedAt >= startOfDayUtc &&
+                feedback.CreatedAt < endOfDayUtc);
+
+        if (submittedToday >= dailyLimit)
+        {
+            throw new BusinessRuleException(
+                BusinessErrorCode.DailyFeedbackLimitReached,
+                $"Bạn đã gửi đủ {dailyLimit} phản ánh trong hôm nay. " +
+                "Vui lòng quay lại vào ngày mai.",
+                StatusCodes.Status429TooManyRequests);
+        }
+    }
+
+    private static string NormalizeSubmissionChannel(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) ||
+            string.Equals(value, FeedbackSubmissionChannel.Web, StringComparison.OrdinalIgnoreCase))
+        {
+            return FeedbackSubmissionChannel.Web;
+        }
+
+        if (string.Equals(value, FeedbackSubmissionChannel.Messenger, StringComparison.OrdinalIgnoreCase))
+        {
+            return FeedbackSubmissionChannel.Messenger;
+        }
+
+        if (string.Equals(value, FeedbackSubmissionChannel.Zalo, StringComparison.OrdinalIgnoreCase))
+        {
+            return FeedbackSubmissionChannel.Zalo;
+        }
+
+        throw new Exception("SubmissionChannel khong hop le.");
+    }
+
+    private static string NormalizeProviderReportStatus(string status)
+    {
+        var normalized = AllowedProviderReportStatuses.FirstOrDefault(
+            allowed => string.Equals(allowed, status.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        return normalized ?? throw new Exception(
+            $"Provider report status khong hop le. Cac gia tri duoc phep: {string.Join(", ", AllowedProviderReportStatuses)}.");
+    }
+
+    private async Task<FeedbackStatusHistory> ChangeStatusAsync(
+    Feedback feedback,
+    string newStatus,
+    Guid userId,
+    string? note = null)
+    {
+        var oldStatus = feedback.Status;
+        var normalizedStatus = FeedbackStatus.Normalize(newStatus);
+        await EnsureDuplicateReviewCompletedBeforeWorkflowAsync(feedback, normalizedStatus);
+
+        feedback.Status = normalizedStatus;
+        feedback.UpdatedAt = DateTime.UtcNow;
+
+        var history = new FeedbackStatusHistory
+        {
+            FeedbackId = feedback.FeedbackId,
+            ChangedByUserId = userId,
+            OldStatus = oldStatus,
+            NewStatus = feedback.Status,
+            Note = note,
+            ChangedAt = DateTime.UtcNow
+        };
+
+        await _uow
+            .GetRepository<FeedbackStatusHistory>()
+            .AddAsync(history);
+
+        return history;
+    }
+
+    public async Task VerifyFeedbackAsync(
+    Guid feedbackId,
+    Guid managerUserId)
+    {
+        await ManagementAccessRules.EnsureManagerFeedbackReviewAccessAsync(
+            _uow,
+            feedbackId,
+            managerUserId);
+        var feedback = await GetFeedbackWithDetailsAsync(
+            feedbackId,
+            false);
+
+        if (feedback.Status != FeedbackStatus.Submitted &&
+            feedback.Status != FeedbackStatus.AiReviewed)
+        {
+            throw new Exception(
+                "Feedback must be Submitted or AiReviewed.");
+        }
+
+        await EnsureDuplicateMasterStatusInvariantAsync(feedback, FeedbackStatus.Verified);
+        await EnsureDuplicateReviewCompletedBeforeWorkflowAsync(feedback, FeedbackStatus.Verified);
+
+        var history = await _incidentService.VerifyReportAsync(
+            feedbackId,
+            managerUserId,
+            "Manager đã xác nhận phản ánh");
+
+    }
+
+    public async Task<IncidentProviderAssignmentDto> AssignIncidentProviderAsync(
+        Guid incidentId,
+        Guid staffUserId,
+        AssignIncidentProviderRequest request)
+    {
+        var incident = await ManagementAccessRules.EnsureStaffIncidentOperationAsync(
+            _uow,
+            incidentId,
+            staffUserId);
+        _uow.BeginTransaction();
+
+        try
+        {
+            if (incident.Status != IncidentStatus.Assigned)
+                throw new Exception(
+                    "Sự vụ phải ở trạng thái Assigned trước khi làm việc với bên thứ ba.");
+
+            var alreadyAssigned = await _uow.GetRepository<FeedbackProviderReport>().Entities
+                .AsNoTracking()
+                .AnyAsync(report => report.IncidentId == incidentId);
+            if (alreadyAssigned)
+            {
+                throw new ConflictException(
+                    "Incident already has a provider assignment. Provider cannot be changed.");
+            }
+
+            var coordinatorExists = await _uow
+                .GetRepository<CoordinatorCoverage>()
+                .Entities
+                .AsNoTracking()
+                .AnyAsync(coverage =>
+                    coverage.CoordinatorId == request.CoordinatorId &&
+                    coverage.AreaId == incident.AreaId &&
+                    incident.CategoryId.HasValue &&
+                    coverage.CategoryId == incident.CategoryId.Value &&
+                    coverage.IsActive &&
+                    coverage.Coordinator.IsActive);
+
+            if (!coordinatorExists)
+                throw new Exception("Coordinator khong ton tai hoac da bi khoa.");
+
+            var report =
+                new FeedbackProviderReport
+                {
+                    IncidentId = incidentId,
+
+                    CoordinatorId =
+                        request.CoordinatorId,
+
+                    ReportedByUserId =
+                        staffUserId,
+
+                    ReportStatus =
+                        "Reported",
+
+                    ReportNote =
+                        request.Note,
+
+                    ReportedAt =
+                        DateTime.UtcNow
+                };
+
+            await _uow
+                .GetRepository<FeedbackProviderReport>()
+                .AddAsync(report);
+
+            await _uow.GetRepository<IncidentEvent>().AddAsync(new IncidentEvent
+            {
+                IncidentId = incidentId,
+                EventType = IncidentEventType.ProviderAssigned,
+                ActorUserId = staffUserId,
+                PayloadJson = JsonSerializer.Serialize(new
+                {
+                    request.CoordinatorId,
+                    status = "Reported",
+                    note = NormalizeOptional(request.Note)
+                }),
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _uow.SaveAsync();
+
+            _uow.CommitTransaction();
+
+            return await GetProviderAssignmentDtoAsync(report.ProviderReportId);
+        }
+        catch
+        {
+            _uow.RollBack();
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyCollection<ProviderCandidateDto>> GetIncidentProviderCandidatesAsync(
+        Guid incidentId,
+        Guid currentUserId)
+    {
+        var incident = await ManagementAccessRules.EnsureStaffIncidentOperationAsync(
+            _uow,
+            incidentId,
+            currentUserId);
+
+        var coverages = await _uow.GetRepository<CoordinatorCoverage>().Entities
+            .AsNoTracking()
+            .Include(c => c.Coordinator)
+                .ThenInclude(c => c.ProviderContracts)
+            .Where(c =>
+                c.AreaId == incident.AreaId &&
+                incident.CategoryId.HasValue &&
+                c.CategoryId == incident.CategoryId.Value &&
+                c.IsActive &&
+                c.Coordinator.IsActive)
+            .OrderByDescending(c => c.IsPrimary)
+            .ThenBy(c => c.PriorityOrder)
+            .ThenBy(c => c.Coordinator.ProviderName)
+            .ToListAsync();
+
+        return coverages
+            .Select(coverage =>
+            {
+                var contract = coverage.Coordinator.ProviderContracts
+                    .Where(contract =>
+                        (contract.AreaId == null || contract.AreaId == incident.AreaId) &&
+                        (contract.CategoryId == null || contract.CategoryId == incident.CategoryId))
+                    .OrderByDescending(contract =>
+                        string.Equals(contract.Status, "Active", StringComparison.OrdinalIgnoreCase))
+                    .ThenByDescending(contract =>
+                        contract.AreaId == incident.AreaId &&
+                        contract.CategoryId == incident.CategoryId)
+                    .ThenByDescending(contract => contract.CreatedAt)
+                    .FirstOrDefault();
+
+                return new ProviderCandidateDto
+                {
+                    CoordinatorId = coverage.CoordinatorId,
+                    ProviderName = coverage.Coordinator.ProviderName,
+                    CoordinatorName = coverage.Coordinator.CoordinatorName,
+                    PhoneNumber = coverage.Coordinator.PhoneNumber,
+                    Email = coverage.Coordinator.Email,
+                    Address = coverage.Coordinator.Address,
+                    Note = coverage.Coordinator.Note,
+                    IsPrimary = coverage.IsPrimary,
+                    PriorityOrder = coverage.PriorityOrder,
+                    ContractId = contract?.ContractId,
+                    ContractCode = contract?.ContractCode,
+                    ContractName = contract?.ContractName,
+                    ContractStatus = contract?.Status
+                };
+            })
+            .ToList();
+    }
+
+    public async Task<IncidentProviderAssignmentDto?> GetCurrentProviderAssignmentAsync(
+        Guid incidentId,
+        Guid currentUserId)
+    {
+        await ManagementAccessRules.EnsureIncidentReadAccessAsync(_uow, incidentId, currentUserId);
+
+        var report = await _uow.GetRepository<FeedbackProviderReport>().Entities
+            .AsNoTracking()
+            .Include(r => r.Coordinator)
+            .Include(r => r.ReportedByUser)
+            .Include(r => r.ProviderContactLogs)
+            .Include(r => r.CompletionDocuments)
+            .SingleOrDefaultAsync(r => r.IncidentId == incidentId);
+
+        return report == null ? null : MapProviderAssignment(report);
+    }
+
+    public async Task<IncidentProviderAssignmentDto> UpdateProviderAssignmentStatusAsync(
+        int providerAssignmentId,
+        Guid currentUserId,
+        UpdateProviderAssignmentStatusRequest request)
+    {
+        await EnsureProviderAssignmentOperationAccessAsync(providerAssignmentId, currentUserId);
+        if (string.IsNullOrWhiteSpace(request.Status))
+        {
+            throw new Exception("Status la bat buoc.");
+        }
+
+        var report = await _uow.GetRepository<FeedbackProviderReport>().Entities
+            .Include(r => r.Incident)
+            .FirstOrDefaultAsync(r => r.ProviderReportId == providerAssignmentId)
+            ?? throw new Exception("Provider report khong ton tai.");
+        if (report.ReportStatus != "Reported" && report.ReportStatus != "InProgress")
+        {
+            throw new Exception("Provider Report không còn ở trạng thái cho phép cập nhật.");
+        }
+
+        var newStatus = NormalizeProviderReportStatus(request.Status);
+        var allowedTransition =
+            (report.ReportStatus == "Reported" && newStatus == "InProgress") ||
+            report.ReportStatus == newStatus;
+        if (!allowedTransition)
+        {
+            throw new Exception("Chuyển trạng thái Provider Report không hợp lệ.");
+        }
+        report.ReportStatus = newStatus;
+        report.UpdatedAt = DateTime.UtcNow;
+
+        if (!string.IsNullOrWhiteSpace(request.Note))
+        {
+            report.ReportNote = request.Note.Trim();
+        }
+
+        if (newStatus == "InProgress" &&
+            report.Incident.Status == IncidentStatus.Assigned)
+        {
+            await _incidentService.UpdateStatusFromProviderAssignmentAsync(
+                report.IncidentId,
+                new UpdateIncidentStatusRequest
+                {
+                    Status = IncidentStatus.InProgress,
+                    Note = request.Note
+                },
+                currentUserId);
+        }
+
+        await _uow.SaveAsync();
+
+        return await GetProviderAssignmentDtoAsync(providerAssignmentId);
+    }
+
+    public async Task<ProviderContactLogDto> AddProviderContactLogAsync(
+        int providerAssignmentId,
+        Guid currentUserId,
+        ProviderContactLogCreateRequest request)
+    {
+        await EnsureProviderAssignmentOperationAccessAsync(providerAssignmentId, currentUserId);
+        if (string.IsNullOrWhiteSpace(request.ContactMethod))
+        {
+            throw new Exception("ContactMethod la bat buoc.");
+        }
+
+        var report = await _uow.GetRepository<FeedbackProviderReport>().Entities
+            .Include(r => r.Incident)
+            .FirstOrDefaultAsync(r => r.ProviderReportId == providerAssignmentId)
+            ?? throw new Exception("Provider report khong ton tai.");
+
+        var now = DateTime.UtcNow;
+        var log = new ProviderContactLog
+        {
+            ProviderReportId = providerAssignmentId,
+            CoordinatorId = report.CoordinatorId,
+            ContactedByUserId = currentUserId,
+            ContactMethod = request.ContactMethod.Trim(),
+            ContactResult = NormalizeOptional(request.ContactResult),
+            ContactNote = NormalizeOptional(request.ContactNote),
+            ContactedAt = request.ContactedAt ?? now
+        };
+
+        await _uow.GetRepository<ProviderContactLog>().AddAsync(log);
+
+        var isSuccessfulContact = IsSuccessfulCoordinatorContact(log.ContactResult);
+
+        if (string.Equals(report.ReportStatus, "Reported", StringComparison.OrdinalIgnoreCase) &&
+            isSuccessfulContact)
+        {
+            report.ReportStatus = "InProgress";
+            report.UpdatedAt = now;
+
+            if (report.Incident.Status == IncidentStatus.Assigned)
+            {
+                await _incidentService.UpdateStatusFromProviderAssignmentAsync(
+                    report.IncidentId,
+                    new UpdateIncidentStatusRequest
+                    {
+                        Status = IncidentStatus.InProgress,
+                        Note = "Liên hệ coordinator thành công, bắt đầu xử lý."
+                    },
+                    currentUserId);
+            }
+        }
+
+        await _uow.SaveAsync();
+
+        var saved = await _uow.GetRepository<ProviderContactLog>().Entities
+            .AsNoTracking()
+            .Include(l => l.Coordinator)
+            .Include(l => l.ContactedByUser)
+            .FirstAsync(l => l.ContactLogId == log.ContactLogId);
+
+        return MapContactLog(saved);
+    }
+
+    private static bool IsSuccessfulCoordinatorContact(string? contactResult)
+    {
+        if (string.IsNullOrWhiteSpace(contactResult))
+        {
+            return false;
+        }
+
+        var normalized = contactResult.Trim().ToLowerInvariant();
+
+        if (normalized.Contains("liên hệ lại") ||
+            normalized.Contains("lien he lai") ||
+            normalized.Contains("cần gọi lại") ||
+            normalized.Contains("can goi lai") ||
+            normalized.Contains("không") ||
+            normalized.Contains("khong") ||
+            normalized.Contains("chưa") ||
+            normalized.Contains("chua") ||
+            normalized.Contains("thất bại") ||
+            normalized.Contains("that bai") ||
+            normalized.Contains("failed"))
+        {
+            return false;
+        }
+
+        return normalized.Contains("thành công") ||
+            normalized.Contains("thanh cong") ||
+            normalized.Contains("đã liên hệ") ||
+            normalized.Contains("da lien he") ||
+            normalized.Contains("successful") ||
+            normalized.Contains("success");
+    }
+
+    public async Task<IReadOnlyCollection<ProviderContactLogDto>> GetProviderContactLogsAsync(
+        int providerAssignmentId,
+        Guid currentUserId)
+    {
+        var incidentId = await ManagementAccessRules.GetProviderAssignmentIncidentIdAsync(
+            _uow,
+            providerAssignmentId);
+        await ManagementAccessRules.EnsureIncidentReadAccessAsync(_uow, incidentId, currentUserId);
+        await EnsureProviderReportExistsAsync(providerAssignmentId);
+
+        var logs = await _uow.GetRepository<ProviderContactLog>().Entities
+            .AsNoTracking()
+            .Include(l => l.Coordinator)
+            .Include(l => l.ContactedByUser)
+            .Where(l => l.ProviderReportId == providerAssignmentId)
+            .OrderByDescending(l => l.ContactedAt)
+            .ToListAsync();
+
+        return logs
+            .Select(MapContactLog)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyCollection<CompletionDocumentDto>> AddCompletionDocumentsAsync(
+        int providerAssignmentId,
+        Guid currentUserId,
+        IReadOnlyCollection<UploadedFeedbackAttachmentDto> documents,
+        string? description)
+    {
+        await EnsureProviderAssignmentOperationAccessAsync(providerAssignmentId, currentUserId);
+        var report = await _uow.GetRepository<FeedbackProviderReport>().Entities
+            .Include(r => r.Incident)
+            .FirstOrDefaultAsync(r => r.ProviderReportId == providerAssignmentId)
+            ?? throw new Exception("Provider report khong ton tai.");
+        if (report.ReportStatus != "Reported" && report.ReportStatus != "InProgress")
+        {
+            throw new Exception("Chỉ được ghi nhận liên hệ khi Provider Report đang xử lý.");
+        }
+        var canUpload = report.ReportStatus == "InProgress" &&
+            (report.Incident.Status == IncidentStatus.InProgress ||
+             report.Incident.Status == IncidentStatus.NeedRework);
+        if (!canUpload)
+        {
+            throw new Exception("Chỉ được tải minh chứng khi sự vụ đang xử lý hoặc làm lại.");
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var document in documents)
+        {
+            await _uow.GetRepository<CompletionDocument>().AddAsync(new CompletionDocument
+            {
+                ProviderReportId = providerAssignmentId,
+                IncidentId = report.IncidentId,
+                CoordinatorId = report.CoordinatorId,
+                UploadedByUserId = currentUserId,
+                FileUrl = document.FileUrl,
+                FileType = document.FileType,
+                Description = NormalizeOptional(description),
+                ReceivedAt = now
+            });
+        }
+
+        await _uow.SaveAsync();
+        return await GetCompletionDocumentsCoreAsync(providerAssignmentId);
+    }
+
+    public async Task<IReadOnlyCollection<CompletionDocumentDto>> GetCompletionDocumentsAsync(
+        int providerAssignmentId,
+        Guid currentUserId)
+    {
+        var incidentId = await ManagementAccessRules.GetProviderAssignmentIncidentIdAsync(
+            _uow,
+            providerAssignmentId);
+        await ManagementAccessRules.EnsureIncidentReadAccessAsync(_uow, incidentId, currentUserId);
+        return await GetCompletionDocumentsCoreAsync(providerAssignmentId);
+    }
+
+    private async Task<IReadOnlyCollection<CompletionDocumentDto>> GetCompletionDocumentsCoreAsync(
+        int providerReportId)
+    {
+        await EnsureProviderReportExistsAsync(providerReportId);
+
+        var documents = await _uow.GetRepository<CompletionDocument>().Entities
+            .AsNoTracking()
+            .Include(d => d.Coordinator)
+            .Include(d => d.UploadedByUser)
+            .Where(d => d.ProviderReportId == providerReportId)
+            .OrderByDescending(d => d.ReceivedAt)
+            .ToListAsync();
+
+        return documents
+            .Select(MapCompletionDocument)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyCollection<FeedbackResolutionDto>> GetFeedbackResolutionsAsync(
+        Guid feedbackId,
+        Guid currentUserId)
+    {
+        await EnsureManagementFeedbackReadAccessAsync(feedbackId, currentUserId);
+        var incidentId = await GetActiveIncidentIdAsync(feedbackId);
+        return await GetIncidentResolutionsCoreAsync(incidentId);
+    }
+
+    public async Task<IReadOnlyCollection<FeedbackResolutionDto>> GetFeedbackResolutionsAsync(
+        Guid feedbackId)
+    {
+        await EnsureFeedbackExistsAsync(feedbackId);
+        var incidentId = await GetActiveIncidentIdAsync(feedbackId);
+        return await GetIncidentResolutionsCoreAsync(incidentId);
+    }
+
+    public async Task<IReadOnlyCollection<FeedbackResolutionDto>> GetIncidentResolutionsAsync(
+        Guid incidentId,
+        Guid currentUserId)
+    {
+        await ManagementAccessRules.EnsureIncidentReadAccessAsync(_uow, incidentId, currentUserId);
+        return await GetIncidentResolutionsCoreAsync(incidentId);
+    }
+
+    private async Task<IReadOnlyCollection<FeedbackResolutionDto>> GetIncidentResolutionsCoreAsync(
+        Guid incidentId)
+    {
+        var resolutions = await _uow.GetRepository<FeedbackResolution>().Entities
+            .AsNoTracking()
+            .Include(r => r.Incident)
+            .Include(r => r.CreatedByStaffUser)
+            .Include(r => r.ReviewedByManager)
+            .Include(r => r.ProviderReport)
+                .ThenInclude(r => r!.CompletionDocuments)
+            .Where(r => r.IncidentId == incidentId)
+            .OrderByDescending(r => r.ResolvedAt)
+            .ToListAsync();
+
+        return resolutions
+            .Select(MapResolution)
+            .ToList();
+    }
+
+    public async Task<FeedbackResolutionDto> GetCurrentIncidentResolutionAsync(
+        Guid incidentId,
+        Guid currentUserId)
+    {
+        await ManagementAccessRules.EnsureIncidentReadAccessAsync(_uow, incidentId, currentUserId);
+        var resolution = await GetCurrentIncidentResolutionCoreAsync(incidentId, asNoTracking: true);
+        return MapResolution(resolution);
+    }
+
+    private async Task<FeedbackResolution> GetCurrentIncidentResolutionCoreAsync(
+        Guid incidentId,
+        bool asNoTracking,
+        int? expectedResolutionId = null)
+    {
+        var query = _uow.GetRepository<FeedbackResolution>().Entities
+            .Include(r => r.Incident)
+            .Include(r => r.CreatedByStaffUser)
+            .Include(r => r.ReviewedByManager)
+            .Include(r => r.ProviderReport)
+                .ThenInclude(r => r!.CompletionDocuments)
+            .Where(r => r.IncidentId == incidentId);
+
+        if (asNoTracking)
+        {
+            query = query.AsNoTracking();
+        }
+
+        var resolution = await query
+            .OrderByDescending(r => r.ResolvedAt)
+            .FirstOrDefaultAsync()
+            ?? throw new Exception("Không tìm thấy resolution của Incident.");
+
+        if (expectedResolutionId.HasValue &&
+            resolution.ResolutionId != expectedResolutionId.Value)
+        {
+            throw new ConflictException("Resolution không phải kết quả hiện tại của Incident.");
+        }
+
+        return resolution;
+    }
+
+    public async Task<FeedbackResolutionDto> GetResolutionAsync(
+        int resolutionId,
+        Guid currentUserId)
+    {
+        var incidentId = await _uow.GetRepository<FeedbackResolution>().Entities
+            .AsNoTracking()
+            .Where(resolution => resolution.ResolutionId == resolutionId)
+            .Select(resolution => (Guid?)resolution.IncidentId)
+            .SingleOrDefaultAsync()
+            ?? throw new Exception("Khong tim thay resolution.");
+        await ManagementAccessRules.EnsureIncidentReadAccessAsync(_uow, incidentId, currentUserId);
+        var resolution = await _uow.GetRepository<FeedbackResolution>().Entities
+            .AsNoTracking()
+            .Include(r => r.Incident)
+            .Include(r => r.CreatedByStaffUser)
+            .Include(r => r.ReviewedByManager)
+            .Include(r => r.ProviderReport)
+                .ThenInclude(r => r!.CompletionDocuments)
+            .FirstOrDefaultAsync(r => r.ResolutionId == resolutionId)
+            ?? throw new Exception("Khong tim thay resolution.");
+
+        return MapResolution(resolution);
+    }
+
+    public async Task NotifyProviderResultAsync(
+        Guid feedbackId,
+        Guid currentUserId,
+        NotifyProviderResultRequest request)
+    {
+        await ManagementAccessRules.EnsureStaffFeedbackOperationAsync(
+            _uow,
+            feedbackId,
+            currentUserId);
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            throw new Exception("Title la bat buoc.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Message))
+        {
+            throw new Exception("Message la bat buoc.");
+        }
+
+        var feedback = await _uow.GetRepository<Feedback>().Entities
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.FeedbackId == feedbackId)
+            ?? throw new Exception("Khong tim thay feedback.");
+
+        await _notificationService.SendAsync(
+            feedback.UserId,
+            request.Title.Trim(),
+            request.Message.Trim(),
+            NotificationType.TicketUpdated,
+            string.IsNullOrWhiteSpace(request.TargetUrl)
+                ? $"/feedbacks/{feedbackId}"
+                : request.TargetUrl.Trim());
+    }
+
+    public async Task<FeedbackResolutionDto> SubmitIncidentResolutionAsync(
+        Guid incidentId,
+        Guid staffUserId,
+        SubmitResolutionRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(
+                request.ResolutionSummary))
+        {
+            throw new Exception(
+                "ResolutionSummary là bắt buộc.");
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                request.ActionTaken))
+        {
+            throw new Exception(
+                "ActionTaken là bắt buộc.");
+        }
+
+        var incident = await ManagementAccessRules.EnsureStaffIncidentOperationAsync(
+            _uow,
+            incidentId,
+            staffUserId);
+
+        var isRework =
+            string.Equals(
+                incident.Status,
+                IncidentStatus.NeedRework,
+                StringComparison.OrdinalIgnoreCase);
+
+        var isFirstSubmit =
+            string.Equals(
+                incident.Status,
+                IncidentStatus.InProgress,
+                StringComparison.OrdinalIgnoreCase);
+
+        if (!isFirstSubmit &&
+            !isRework)
+        {
+            throw new Exception(
+                "Feedback must be InProgress or NeedRework before submitting resolution.");
+        }
+
+        var report = await _uow.GetRepository<FeedbackProviderReport>().Entities
+            .SingleOrDefaultAsync(x => x.IncidentId == incidentId)
+            ?? throw new Exception("Incident does not have a provider assignment.");
+
+        if (request.ProviderAssignmentId.HasValue &&
+            request.ProviderAssignmentId.Value != report.ProviderReportId)
+        {
+            throw new ConflictException("Provider assignment does not belong to this incident.");
+        }
+
+        if (report != null &&
+            !string.Equals(
+                report.ReportStatus,
+                "InProgress",
+                StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(
+                report.ReportStatus,
+                "Done",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception(
+                "Provider report must be InProgress before submitting resolution.");
+        }
+
+        var now =
+            DateTime.UtcNow;
+
+        FeedbackResolution resolution;
+
+        /*
+         * ======================================================
+         * REWORK
+         * ======================================================
+         *
+         * Update chính resolution cũ.
+         * KHÔNG tạo resolution mới.
+         */
+        if (isRework)
+        {
+            resolution = await _uow
+                .GetRepository<FeedbackResolution>()
+                .Entities
+                .Where(x =>
+                    x.IncidentId == incidentId)
+                .OrderByDescending(x =>
+                    x.ResolvedAt)
+                .FirstOrDefaultAsync()
+                ?? throw new Exception(
+                    "Không tìm thấy resolution cần làm lại.");
+
+            if (!string.Equals(
+                    resolution.Status,
+                    FeedbackStatus.NeedRework,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception(
+                    "Resolution hiện tại không ở trạng thái NeedRework.");
+            }
+
+            /*
+             * Không cho rework chuyển sang một Provider Report khác.
+             */
+            if (request.ProviderAssignmentId.HasValue &&
+                resolution.ProviderReportId.HasValue &&
+                resolution.ProviderReportId.Value !=
+                    request.ProviderAssignmentId.Value)
+            {
+                throw new Exception(
+                    "Resolution không thuộc Provider Report hiện tại.");
+            }
+
+            resolution.ProviderReportId =
+                request.ProviderAssignmentId ??
+                resolution.ProviderReportId;
+
+            resolution.CreatedByStaffUserId =
+                staffUserId;
+
+            resolution.ResolutionSummary =
+                request.ResolutionSummary.Trim();
+
+            resolution.ActionTaken =
+                request.ActionTaken.Trim();
+
+            resolution.ResultNote =
+                NormalizeOptional(
+                    request.ResultNote);
+
+            resolution.Status =
+                FeedbackStatus.SubmittedForApproval;
+
+            resolution.ReviewReason = null;
+            resolution.ReviewedByManagerId = null;
+            resolution.ReviewedByManager = null;
+            resolution.ReviewedAt = null;
+
+            resolution.ResolvedAt =
+                now;
+        }
+        else
+        {
+            /*
+             * ======================================================
+             * SUBMIT LẦN ĐẦU
+             * ======================================================
+             */
+
+            var alreadyHasResolution =
+                await _uow
+                    .GetRepository<FeedbackResolution>()
+                    .Entities
+                    .AsNoTracking()
+                    .AnyAsync(x =>
+                        x.IncidentId == incidentId);
+
+            if (alreadyHasResolution)
+            {
+                throw new ConflictException(
+                    "Feedback đã có resolution. Không thể tạo resolution mới.");
+            }
+
+            resolution =
+                new FeedbackResolution
+                {
+                    IncidentId = incidentId,
+
+                    ProviderReportId =
+                        report!.ProviderReportId,
+
+                    CreatedByStaffUserId =
+                        staffUserId,
+
+                    ResolutionSummary =
+                        request.ResolutionSummary.Trim(),
+
+                    ActionTaken =
+                        request.ActionTaken!.Trim(),
+
+                    ResultNote =
+                        NormalizeOptional(
+                            request.ResultNote),
+
+                    Status =
+                        FeedbackStatus.SubmittedForApproval,
+
+                    ResolvedAt =
+                        now
+                };
+
+            await _uow
+                .GetRepository<FeedbackResolution>()
+                .AddAsync(resolution);
+        }
+
+        /*
+         * Provider Report quay lại Done sau khi
+         * staff gửi kết quả mới.
+         */
+        if (report != null)
+        {
+            report.ReportStatus =
+                "Done";
+
+            report.UpdatedAt =
+                now;
+
+            /*
+             * Giữ đoạn này để tương thích nếu client khác
+             * vẫn còn gửi ImageUrls trực tiếp.
+             *
+             * FE workspace hiện tại gửi imageUrls = []
+             * vì đã upload qua completion-documents riêng.
+             */
+            foreach (var image in request.ImageUrls ?? [])
+            {
+                if (string.IsNullOrWhiteSpace(
+                        image))
+                {
+                    continue;
+                }
+
+                await _uow
+                    .GetRepository<CompletionDocument>()
+                    .AddAsync(
+                        new CompletionDocument
+                        {
+                            ProviderReportId =
+                                report.ProviderReportId,
+
+                            IncidentId = incidentId,
+
+                            CoordinatorId =
+                                report.CoordinatorId,
+
+                            UploadedByUserId =
+                                staffUserId,
+
+                            FileUrl =
+                                image.Trim(),
+
+                            FileType =
+                                "image",
+
+                            ReceivedAt =
+                                now
+                        });
+            }
+        }
+
+        await _incidentService.UpdateStatusFromProviderAssignmentAsync(
+            incidentId,
+            new UpdateIncidentStatusRequest
+            {
+                Status = IncidentStatus.SubmittedForApproval,
+                Note = isRework
+                    ? "Staff đã cập nhật và gửi lại kết quả sau yêu cầu làm lại."
+                    : "Staff đã gửi kết quả xử lý để chờ Manager phê duyệt."
+            },
+            staffUserId);
+
+        var submittedResolution = await GetCurrentIncidentResolutionCoreAsync(
+            incidentId,
+            asNoTracking: true);
+
+        var staffName = submittedResolution.CreatedByStaffUser.FullName;
+        await NotifyAreaManagersResolutionSubmittedAsync(
+            incident,
+            isRework
+                ? "Kết quả xử lý đã được gửi lại chờ duyệt"
+                : "Có kết quả xử lý mới chờ duyệt",
+            isRework
+                ? $"{staffName} đã cập nhật và gửi lại kết quả xử lý sự vụ \"{submittedResolution.Incident.Title}\" sau yêu cầu làm lại."
+                : $"{staffName} đã gửi kết quả xử lý sự vụ \"{submittedResolution.Incident.Title}\" để chờ phê duyệt.");
+
+        return MapResolution(submittedResolution);
+    }
+
+    /// <summary>
+    /// Gửi thông báo cho các Manager đang phụ trách khu vực của sự vụ khi Staff gửi
+    /// kết quả xử lý lần đầu hoặc gửi lại sau khi bị yêu cầu làm lại.
+    /// </summary>
+    private async Task NotifyAreaManagersResolutionSubmittedAsync(
+        IncidentAccessContext incident,
+        string title,
+        string message)
+    {
+        var managerUserIds = await _uow.GetRepository<ManagerAreaAssignment>().Entities
+            .AsNoTracking()
+            .Where(assignment =>
+                assignment.AreaId == incident.AreaId &&
+                assignment.IsActive &&
+                assignment.Area.IsActive &&
+                assignment.ManagerUser.IsActive &&
+                assignment.ManagerUser.Role.RoleName.ToUpper() == UserRole.INTERACTIONMANAGER)
+            .Select(assignment => assignment.ManagerUserId)
+            .Distinct()
+            .ToListAsync();
+
+        foreach (var managerUserId in managerUserIds)
+        {
+            await _notificationService.SendAsync(
+                managerUserId,
+                title,
+                message,
+                NotificationType.TicketUpdated,
+                $"/management/incidents/{incident.IncidentId}",
+                incident.IncidentId,
+                "Incident",
+                incident.IncidentId.ToString());
+        }
+    }
+
+    public async Task ApproveResolutionAsync(
+        Guid feedbackId,
+        Guid managerId,
+        string? note)
+    {
+        var incident = await ManagementAccessRules.EnsureManagerFeedbackOperationAsync(
+            _uow,
+            feedbackId,
+            managerId);
+        await ApproveIncidentResolutionAsync(
+            incident.IncidentId,
+            resolutionId: null,
+            managerId,
+            note);
+    }
+
+    public async Task<FeedbackResolutionDto> ApproveIncidentResolutionAsync(
+        Guid incidentId,
+        int? resolutionId,
+        Guid managerId,
+        string? note)
+    {
+        var incident = await ManagementAccessRules.EnsureManagerIncidentOperationAsync(
+            _uow,
+            incidentId,
+            managerId);
+        EnsureIncidentAwaitingResolutionReview(incident.Status);
+
+        var resolution = await GetCurrentIncidentResolutionCoreAsync(
+            incidentId,
+            asNoTracking: false,
+            resolutionId);
+        EnsureResolutionAwaitingReview(resolution.Status);
+
+        var manager = await _uow.GetRepository<User>().Entities
+            .FirstAsync(user => user.UserId == managerId);
+        var now = DateTime.UtcNow;
+        resolution.Status = FeedbackStatus.Approved;
+        resolution.ReviewReason = null;
+        resolution.ReviewedByManagerId = managerId;
+        resolution.ReviewedByManager = manager;
+        resolution.ReviewedAt = now;
+
+        var activeLinks = await _uow.GetRepository<IncidentReportLink>().Entities
+            .Include(link => link.Feedback)
+            .Where(link =>
+                link.IncidentId == incidentId &&
+                link.LinkStatus == IncidentLinkStatus.Active)
+            .ToListAsync();
+        foreach (var feedback in activeLinks
+            .Select(link => link.Feedback)
+            .DistinctBy(feedback => feedback.FeedbackId))
+        {
+            feedback.ApprovedByManagerId = managerId;
+            feedback.ApprovedAt = now;
+        }
+
+        var updatedIncident = await _incidentService.UpdateStatusFromResolutionReviewAsync(
+            incidentId,
+            new UpdateIncidentStatusRequest
+            {
+                Status = IncidentStatus.Approved,
+                Note = NormalizeOptional(note)
+            },
+            managerId);
+
+        var approveNote = NormalizeOptional(note);
+        await NotifyStaffResolutionReviewAsync(
+            incident,
+            resolution,
+            "Kết quả xử lý đã được phê duyệt",
+            string.IsNullOrWhiteSpace(approveNote)
+                ? $"Manager đã phê duyệt kết quả xử lý sự vụ \"{resolution.Incident.Title}\"."
+                : $"Manager đã phê duyệt kết quả xử lý sự vụ \"{resolution.Incident.Title}\". Ghi chú: {approveNote}",
+            NotificationType.Resolution);
+
+        var result = MapResolution(resolution);
+        result.IncidentStatus = updatedIncident.Status;
+        return result;
+    }
+
+    public async Task RequireReworkAsync(
+        Guid feedbackId,
+        Guid managerId,
+        string reason)
+    {
+        var incident = await ManagementAccessRules.EnsureManagerFeedbackOperationAsync(
+            _uow,
+            feedbackId,
+            managerId);
+        await RequireIncidentResolutionReworkAsync(
+            incident.IncidentId,
+            resolutionId: null,
+            managerId,
+            reason);
+    }
+
+    public async Task<FeedbackResolutionDto> RequireIncidentResolutionReworkAsync(
+        Guid incidentId,
+        int? resolutionId,
+        Guid managerId,
+        string reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new Exception("Lý do yêu cầu làm lại là bắt buộc.");
+        }
+
+        if (reason.Trim().Length > 500)
+        {
+            throw new Exception("Lý do yêu cầu làm lại không được vượt quá 500 ký tự.");
+        }
+
+        var incident = await ManagementAccessRules.EnsureManagerIncidentOperationAsync(
+            _uow,
+            incidentId,
+            managerId);
+        EnsureIncidentAwaitingResolutionReview(incident.Status);
+
+        var resolution = await GetCurrentIncidentResolutionCoreAsync(
+            incidentId,
+            asNoTracking: false,
+            resolutionId);
+        EnsureResolutionAwaitingReview(resolution.Status);
+
+        var manager = await _uow.GetRepository<User>().Entities
+            .FirstAsync(user => user.UserId == managerId);
+        var now = DateTime.UtcNow;
+        resolution.Status = FeedbackStatus.NeedRework;
+        resolution.ReviewReason = reason.Trim();
+        resolution.ReviewedByManagerId = managerId;
+        resolution.ReviewedByManager = manager;
+        resolution.ReviewedAt = now;
+
+        FeedbackProviderReport? providerReport = null;
+        if (resolution.ProviderReportId.HasValue)
+        {
+            providerReport = await _uow
+                .GetRepository<FeedbackProviderReport>()
+                .Entities
+                .FirstOrDefaultAsync(x =>
+                    x.ProviderReportId ==
+                        resolution.ProviderReportId.Value &&
+                    x.IncidentId == incidentId);
+        }
+
+        providerReport ??=
+            await _uow
+                .GetRepository<FeedbackProviderReport>()
+                .Entities
+                .Where(x =>
+                    x.IncidentId == incidentId)
+                .OrderByDescending(x =>
+                    x.ReportedAt)
+                .FirstOrDefaultAsync();
+
+        if (providerReport != null)
+        {
+            providerReport.ReportStatus =
+                "InProgress";
+
+            providerReport.UpdatedAt =
+                now;
+        }
+
+        var updatedIncident = await _incidentService.UpdateStatusFromResolutionReviewAsync(
+            incidentId,
+            new UpdateIncidentStatusRequest
+            {
+                Status = IncidentStatus.NeedRework,
+                Note = reason.Trim()
+            },
+            managerId);
+
+        await NotifyStaffResolutionReviewAsync(
+            incident,
+            resolution,
+            "Kết quả xử lý cần được làm lại",
+            $"Manager yêu cầu làm lại kết quả xử lý sự vụ \"{resolution.Incident.Title}\". Lý do: {reason.Trim()}",
+            NotificationType.TicketUpdated);
+
+        var result = MapResolution(resolution);
+        result.IncidentStatus = updatedIncident.Status;
+        return result;
+    }
+
+    /// <summary>
+    /// Gửi thông báo kết quả review của Manager cho Staff tạo resolution và Staff
+    /// đang được phân công sự vụ.
+    /// </summary>
+    private async Task NotifyStaffResolutionReviewAsync(
+        IncidentAccessContext incident,
+        FeedbackResolution resolution,
+        string title,
+        string message,
+        string notificationType)
+    {
+        var recipients = new[]
+            {
+                resolution.CreatedByStaffUserId,
+                incident.AssignedStaffUserId ?? Guid.Empty
+            }
+            .Where(userId => userId != Guid.Empty)
+            .Distinct()
+            .ToList();
+
+        foreach (var userId in recipients)
+        {
+            await _notificationService.SendAsync(
+                userId,
+                title,
+                message,
+                notificationType,
+                $"/management/incidents/{incident.IncidentId}",
+                incident.IncidentId,
+                "Incident",
+                incident.IncidentId.ToString());
+        }
+    }
+
+    private static void EnsureIncidentAwaitingResolutionReview(string status)
+    {
+        if (!string.Equals(
+                status,
+                IncidentStatus.SubmittedForApproval,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception("Incident phải ở trạng thái SubmittedForApproval trước khi review.");
+        }
+    }
+
+    private static void EnsureResolutionAwaitingReview(string status)
+    {
+        if (!string.Equals(
+                status,
+                FeedbackStatus.SubmittedForApproval,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Exception("Resolution hiện tại không ở trạng thái chờ phê duyệt.");
+        }
+    }
+
+    public async Task<FeedbackResolutionReviewDto> CitizenReviewAsync(
+    CitizenReviewRequest request)
+    {
+        var feedback =
+            await GetFeedbackWithDetailsAsync(
+                request.FeedbackId,
+                false);
+
+        if (feedback.UserId != request.UserId)
+        {
+            throw new Exception("Chi chu so huu feedback moi duoc danh gia ket qua.");
+        }
+
+        if (feedback.Status !=
+            FeedbackStatus.Approved)
+            throw new Exception(
+                "Feedback must be Approved.");
+
+        if (request.Rating < 1 || request.Rating > 5)
+        {
+            throw new Exception("Rating phai nam trong khoang 1 den 5.");
+        }
+
+        var review =
+            new FeedbackResolutionReview
+            {
+                FeedbackId =
+                    request.FeedbackId,
+
+                UserId =
+                    request.UserId,
+
+                Rating =
+                    request.Rating,
+
+                IsSatisfied =
+                    request.IsSatisfied,
+
+                Comment =
+                    request.Comment ?? string.Empty,
+
+                CreatedAt =
+                    DateTime.UtcNow
+            };
+
+        await _uow
+            .GetRepository<FeedbackResolutionReview>()
+            .AddAsync(review);
+
+        var history = await ChangeStatusAsync(
+            feedback,
+            FeedbackStatus.Closed,
+            request.UserId);
+
+        await _uow.SaveAsync();
+        await SendStatusUpdatedNotificationAsync(feedback, history);
+
+        var saved = await _uow.GetRepository<FeedbackResolutionReview>().Entities
+            .AsNoTracking()
+            .Include(r => r.User)
+            .FirstAsync(r => r.ReviewId == review.ReviewId);
+
+        return MapResolutionReview(saved);
+    }
+}

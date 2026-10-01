@@ -1,0 +1,104 @@
+# EAS uploads from the monorepo root so workspace dependencies can be resolved.
+# Keep this file at least as strict as .gitignore, then exclude non-mobile
+# workspaces and documentation that are not required to compile the app.
+
+# Dependencies and package-manager caches
+node_modules/
+.pnp
+.pnp.js
+.pnpm-store/
+.yarn/
+.yarn/install-state.gz
+.history/
+
+# Generated output and local native trees
+dist/
+build/
+out/
+.output/
+.next/
+.nuxt/
+.expo/
+.expo-shared/
+web-build/
+android/
+ios/
+.cxx-staff-validation/
+.x/
+.native/
+.cache/
+.turbo/
+*.tsbuildinfo
+
+# Secrets and signing material
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Logs, test output and temporary files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+coverage/
+.nyc_output/
+*.snap
+playwright-report/
+test-results/
+apps/web/tests/results/
+apps/web/tests-results/
+apps/mobile/tests/
+*.tmp
+*.temp
+*.orig.*
+.metro-health-check*
+
+# IDE and operating-system files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Repository content unrelated to the mobile build
+.git/
+.github/
+.agents/
+.claude/
+.codex/
+.cursor/
+docs/
+apps/web/
+dev-proxy/
+build-md/
+_bmad/
+swagger.json
+login.html
+login_payload.json
+DEAD_CODE_REPORT.md
+MIGRATION_REPORT.md
+BASELINE_FREEZE_REPORT.md
+skills-lock.json
+x.includes('provider-report')

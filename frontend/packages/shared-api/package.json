@@ -1,0 +1,11 @@
+{
+  "name": "@urbanmind/shared-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "dependencies": {
+    "@urbanmind/shared-types": "workspace:*",
+    "axios": "^1.17.0"
+  }
+}

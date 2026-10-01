@@ -1,0 +1,140 @@
+// Opt-in LOCAL FIXTURE validation only. This script is not part of the app's
+// production Gradle configuration and must never be installed in ~/.gradle/init.d.
+// Invoke through staff-native-build.mjs so the fixture API is embedded consistently.
+gradle.beforeProject { project ->
+    def shortNativeProjects = [
+        ':react-native-worklets': 'worklets',
+        ':react-native-reanimated': 'reanimated',
+        ':react-native-gesture-handler': 'gesture-handler',
+        ':react-native-screens': 'screens',
+        ':expo-modules-core': 'expo-modules-core',
+    ]
+    def nativeStagingName = shortNativeProjects[project.path]
+    if (nativeStagingName != null) {
+        project.plugins.withId('com.android.library') {
+            def components = project.extensions.getByName('androidComponents')
+            components.finalizeDsl { android ->
+                def workspaceRoot = new File(project.rootProject.projectDir, '../../..').canonicalFile
+                def nativeStaging = new File(workspaceRoot, ".cxx-staff-validation/${nativeStagingName}").canonicalFile
+                if (!nativeStaging.path.startsWith(workspaceRoot.path + File.separator)) {
+                    throw new GradleException('Refusing a library native staging directory outside the workspace.')
+                }
+                android.externalNativeBuild.cmake.buildStagingDirectory = nativeStaging
+            }
+        }
+    }
+    if (project.path == ':app') {
+        project.plugins.withId('com.android.application') {
+            // Scope guards to the Android app: Gradle can also apply init scripts
+            // to the included Expo/React Native plugin builds with other tasks.
+            def requestedTasks = project.gradle.startParameter.taskNames
+            if (requestedTasks.isEmpty() || requestedTasks.any { !it.toLowerCase(Locale.ROOT).contains('staffvalidation') }) {
+                throw new GradleException('Staff validation init script only permits StaffValidation tasks; never release/debug distribution tasks.')
+            }
+            if (System.getenv('EXPO_PUBLIC_API_URL') != 'http://127.0.0.1:8100') {
+                throw new GradleException('Staff validation must use the local fixture API http://127.0.0.1:8100.')
+            }
+            // React registers and configures this task lazily while creating
+            // Android variants. Configure it after every project has been
+            // evaluated so its default hoisted entry cannot overwrite ours.
+            project.gradle.projectsEvaluated {
+              project.tasks.named('createBundleStaffValidationJsAndAssets').configure { task ->
+                def mobileRoot = new File(project.rootDir, '..').canonicalFile
+                def bundleEntry = new File(project.rootDir, '../tests/native-validation/index.android.js').canonicalFile
+                def metroConfig = new File(project.rootDir, '../tests/native-validation/metro.config.js').canonicalFile
+                if (!bundleEntry.isFile() || !metroConfig.isFile()) {
+                    throw new GradleException('Missing staff validation bundle entry or Metro configuration.')
+                }
+                // Keep Expo's project root on apps/mobile so Expo Router can
+                // discover app/. The local shim avoids using the hoisted
+                // expo-router entry as the CLI entry file on Windows.
+                task.root.set(mobileRoot)
+                task.entryFile.set(bundleEntry)
+                task.bundleConfig.set(metroConfig)
+              }
+            }
+            // The generated CMake output directory becomes part of every Ninja
+            // object path. Shorten only generated second add_subdirectory
+            // arguments, after the RN task regenerates the file.
+            project.tasks.matching { it.name == 'generateAutolinkingNewArchitectureFiles' }.configureEach { task ->
+                task.outputs.upToDateWhen { false }
+                task.outputs.doNotCacheIf('Staff native validation patches a generated CMake output directory') { true }
+                task.doLast {
+                    def generated = new File(project.buildDir, 'generated/autolinking/src/main/jni/Android-autolinking.cmake')
+                    def source = generated.getText('UTF-8')
+                    def outputDirs = [
+                        rnasyncstorage_autolinked_build: 'a', rngesturehandler_codegen_autolinked_build: 'g',
+                        reactnativekeyboardcontroller_autolinked_build: 'k', rnreanimated_autolinked_build: 'r',
+                        safeareacontext_autolinked_build: 's', rnscreens_autolinked_build: 'n',
+                        rnsvg_autolinked_build: 'v', rnworklets_autolinked_build: 'w',
+                    ]
+                    outputDirs.each { original, shortened ->
+                        def expected = " ${original})"
+                        if (source.count(expected) != 1) {
+                            throw new GradleException("Expected exactly one generated CMake output directory: ${original}.")
+                        }
+                        source = source.replace(expected, " ${shortened})")
+                    }
+                    def linkRoot = System.getenv('STAFF_NATIVE_LINK_ROOT')
+                    if (linkRoot == null || !new File(linkRoot).isDirectory()) {
+                        throw new GradleException('Missing validated short native package junction root.')
+                    }
+                    outputDirs.values().each { shortened ->
+                        def matcher = (source =~ /add_subdirectory\("([^"]+)" ${shortened}\)/)
+                        if (matcher.count != 1) {
+                            throw new GradleException("Expected exactly one generated CMake source directory for ${shortened}.")
+                        }
+                        def sourceDir = matcher[0][1]
+                        def androidIndex = sourceDir.lastIndexOf('/android/')
+                        if (androidIndex < 0) {
+                            throw new GradleException("Cannot identify Android package root for ${sourceDir}.")
+                        }
+                        def packageRoot = sourceDir.substring(0, androidIndex)
+                        def shortPackageRoot = "${linkRoot}/${shortened}"
+                        if (!new File(shortPackageRoot).isDirectory()) {
+                            throw new GradleException("Missing short native package junction: ${shortPackageRoot}.")
+                        }
+                        source = source.replace(packageRoot, shortPackageRoot)
+                    }
+                    generated.setText(source, 'UTF-8')
+                }
+            }
+            def components = project.extensions.getByName('androidComponents')
+            // finalizeDsl runs after the application's release DSL has been
+            // configured, but before variants are created. Copying in withId
+            // itself would copy release defaults too early; afterEvaluate is late
+            // and order-dependent. This is the public AGP 8.11 lifecycle API.
+            components.finalizeDsl { android ->
+                def workspaceRoot = new File(project.rootDir, '../../..').canonicalFile
+                def expectedAndroidRoot = new File(workspaceRoot, 'apps/mobile/android').canonicalFile
+                if (expectedAndroidRoot != project.rootDir.canonicalFile) {
+                    throw new GradleException('Refusing a native staging directory outside the expected workspace.')
+                }
+                // Windows' 260-character Ninja limit is exceeded by generated
+                // keyboard-controller codegen paths. Keep this opt-in build's
+                // CMake tree short and ask CMake to hash object paths earlier.
+                def nativeStaging = new File(workspaceRoot, '.x').canonicalFile
+                android.externalNativeBuild.cmake.buildStagingDirectory = nativeStaging
+                def cmakeArguments = android.defaultConfig.externalNativeBuild.cmake.arguments
+                if (!cmakeArguments.any { it.startsWith('-DCMAKE_OBJECT_PATH_MAX=') }) {
+                    cmakeArguments.add('-DCMAKE_OBJECT_PATH_MAX=180')
+                }
+                def fixtureManifest = new File(project.rootDir, '../tests/native-validation/AndroidManifest.xml').canonicalFile
+                if (!fixtureManifest.isFile()) {
+                    throw new GradleException('Missing staff-only fixture validation manifest.')
+                }
+                if (android.buildTypes.findByName('staffValidation') != null) {
+                    throw new GradleException('Refusing to overwrite an existing staffValidation build type.')
+                }
+                def validation = android.buildTypes.create('staffValidation')
+                validation.initWith(android.buildTypes.getByName('release'))
+                validation.signingConfig = android.signingConfigs.getByName('debug')
+                validation.debuggable = false
+                validation.applicationIdSuffix = '.staffvalidation'
+                validation.versionNameSuffix = '-staff-validation'
+                validation.matchingFallbacks = ['release']
+                android.sourceSets.getByName('staffValidation').manifest.srcFile(fixtureManifest)
+            }
+        }
+    }
+}
