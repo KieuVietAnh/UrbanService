@@ -6,7 +6,6 @@ import {
   useNavigate,
   useSearchParams,
 } from 'react-router-dom';
-import { normalizePhone } from '@urbanmind/shared-api';
 import { useAuth } from '../../contexts/AuthContext';
 import { authApi } from '../../services/api/authApi';
 import { useGoogleIdentity } from '../../hooks/useGoogleIdentity';
@@ -41,7 +40,7 @@ const getAuthErrorMessage = (err, mode = 'login') => {
   }
 
   if (status === 401 || normalized.includes('invalid credentials')) {
-    return 'Email, số điện thoại hoặc mật khẩu không chính xác.';
+    return 'Email hoặc mật khẩu không chính xác.';
   }
   if (status === 403) {
     return 'Tài khoản hiện không được phép đăng nhập. Vui lòng kiểm tra trạng thái tài khoản.';
@@ -59,7 +58,7 @@ const LOGIN_INTENT_META = {
   'messenger-link': {
     icon: Lucide.Link2,
     title: 'Đăng nhập để liên kết Messenger',
-    description: 'Sau khi đăng nhập và xác thực số điện thoại, bạn sẽ quay lại bước xác nhận liên kết.',
+    description: 'Sau khi đăng nhập và xác thực email, bạn sẽ quay lại bước xác nhận liên kết.',
   },
   'create-feedback': {
     icon: Lucide.MessageSquarePlus,
@@ -173,17 +172,12 @@ export const LoginPage = () => {
     const normalizedEmail = email.trim();
 
     if (!normalizedEmail) {
-      setError('Vui lòng nhập email hoặc số điện thoại.');
+      setError('Vui lòng nhập email.');
       return;
     }
 
-    /*
-     * Chấp nhận cả email lẫn số điện thoại: người dùng đăng ký bằng cả hai nên nhớ
-     * cái nào thì cho dùng cái đó. Backend tự nhận dạng, ở đây chỉ chặn chuỗi không
-     * ra hình dạng nào cả.
-     */
-    if (!EMAIL_PATTERN.test(normalizedEmail) && !normalizePhone(normalizedEmail)) {
-      setError('Nhập email hợp lệ hoặc số điện thoại 10 chữ số.');
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
+      setError('Vui lòng nhập địa chỉ email hợp lệ.');
       return;
     }
 
@@ -198,9 +192,9 @@ export const LoginPage = () => {
       const user = await login(normalizedEmail, password);
 
       /*
-       * Chưa xác thực số điện thoại vẫn vào thẳng trang chính. Ràng buộc chỉ áp khi
+       * Chưa xác thực email vẫn vào thẳng trang chính. Ràng buộc chỉ áp khi
        * gửi phản ánh, nên chặn ngay ở cửa đăng nhập là chặn thừa: người chỉ muốn
-       * xem bảng tin hay bản đồ sự cố không có lý do gì phải nhận một tin SMS.
+       * xem bảng tin hay bản đồ sự cố không có lý do gì phải nhập OTP email ngay.
        */
       navigate(resolveRedirect(user?.role), { replace: true });
     } catch (err) {
@@ -541,7 +535,7 @@ export const LoginPage = () => {
           <form onSubmit={handleLogin} className="auth-login-form relative z-10 mt-6 space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="login-email" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Email hoặc số điện thoại
+              Email
             </label>
             <div className="relative">
               <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400" aria-hidden="true">
@@ -551,8 +545,8 @@ export const LoginPage = () => {
                 id="login-email"
                 name="email"
                 type="text"
-                autoComplete="username"
-                placeholder="name@email.com hoặc 0901 234 567"
+                autoComplete="email"
+                placeholder="name@email.com"
                 value={email}
                 onChange={(event) => {
                   setEmail(event.target.value);

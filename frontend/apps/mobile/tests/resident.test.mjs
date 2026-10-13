@@ -129,17 +129,13 @@ test('public status vocabulary does not expose internal rework or assignment mec
   assert.doesNotMatch(residentStatus, /NeedRework|Provider|Phân công/);
 });
 
-test('phone OTP follows the live backend and native Firebase contracts', () => {
+test('email OTP follows the live backend contract', () => {
   const authService = read('../src/features/auth/auth.service.ts');
-  const firebasePhone = read('../src/features/auth/firebase-phone.service.ts');
-  const verifyPhoneScreen = read('../app/(auth)/verify-phone.tsx');
-  assert.match(swagger, /\/api\/auth\/phone-verification\/request-otp/);
-  assert.match(swagger, /\/api\/auth\/phone-verification\/verify/);
-  assert.match(authService, /authApi\.requestPhoneOtp/);
-  assert.match(authService, /authApi\.verifyPhone/);
-  assert.match(firebasePhone, /signInWithPhoneNumber/);
-  assert.match(firebasePhone, /getIdToken\(true\)/);
-  assert.match(verifyPhoneScreen, /Xác thực số điện thoại/);
-  assert.match(dynamicAppConfig, /'@react-native-firebase\/app'/);
-  assert.match(dynamicAppConfig, /'@react-native-firebase\/auth'/);
+  const verifyEmailScreen = read('../app/(auth)/verify-email.tsx');
+  assert.match(swagger, /\/api\/auth\/email-verification\/send-otp/);
+  assert.match(swagger, /\/api\/auth\/email-verification\/verify/);
+  assert.match(authService, /authApi\.sendEmailVerificationOtp/);
+  assert.match(authService, /authApi\.verifyEmail/);
+  assert.match(verifyEmailScreen, /Xác thực email/);
+  assert.doesNotMatch(dynamicAppConfig, /@react-native-firebase/);
 });

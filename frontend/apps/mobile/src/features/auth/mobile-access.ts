@@ -12,7 +12,7 @@ export function getMobileEntry(user: SessionUser) {
   if (role !== APP_ROLES.SERVICE_USER && role !== APP_ROLES.SYSTEM_STAFF) {
     return '/unsupported-role' as const;
   }
-  if (user.isVerified !== true) return '/(auth)/verify-phone' as const;
+  if (user.isVerified !== true) return '/(auth)/verify-email' as const;
   return role === APP_ROLES.SYSTEM_STAFF ? '/(staff)/staff' as const : '/(resident)' as const;
 }
 
@@ -27,7 +27,7 @@ export function getMobileRedirect(user: SessionUser, segments: string[]): Return
   }
   const entry = getMobileEntry(user);
   if (entry === '/unsupported-role') return group === 'unsupported-role' ? null : entry;
-  if (entry === '/(auth)/verify-phone') {
+  if (entry === '/(auth)/verify-email') {
     return group === '(auth)' && ['verify-phone', 'verify-email', 'otp'].includes(screen) ? null : entry;
   }
   const expectedGroup = getMobileRole(user) === APP_ROLES.SYSTEM_STAFF ? '(staff)' : '(resident)';

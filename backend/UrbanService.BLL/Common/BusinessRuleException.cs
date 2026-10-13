@@ -4,7 +4,7 @@ namespace UrbanService.BLL.Common;
 /// Lỗi nghiệp vụ mang theo mã máy đọc được và HTTP status riêng.
 ///
 /// Dùng khi client cần rẽ nhánh giao diện theo từng loại lỗi — ví dụ chưa xác thực
-/// số điện thoại thì điều hướng sang trang xác thực, còn hết lượt gửi trong ngày
+/// email thì điều hướng sang trang xác thực, còn hết lượt gửi trong ngày
 /// thì mở trang thông báo riêng. So khớp câu tiếng Việt để rẽ nhánh là cách làm
 /// vỡ ngay khi ai đó sửa lại câu chữ.
 /// </summary>

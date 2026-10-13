@@ -10,16 +10,15 @@ namespace UrbanService.BLL.Interfaces
         Task<AuthResultDto> LoginAsync(LoginRequest req);
         Task<AuthResultDto> GoogleLoginAsync(GoogleLoginRequest req);
         Task<AuthResultDto> RefreshTokenAsync(RefreshTokenRequest req);
-        /// <summary>Xin phép gửi SMS OTP; kiểm tra hạn mức trước khi client gọi Firebase.</summary>
-        Task<RequestPhoneOtpResultDto> RequestPhoneOtpAsync(
+        /// <summary>Gửi OTP xác thực tới email đang lưu trên tài khoản.</summary>
+        Task RequestEmailVerificationOtpAsync(
             Guid userId,
-            RequestPhoneOtpRequest req,
             CancellationToken cancellationToken = default);
 
-        /// <summary>Xác thực Firebase ID token và đánh dấu tài khoản đã xác thực SĐT.</summary>
-        Task<AuthResultDto> VerifyPhoneAsync(
+        /// <summary>Xác thực OTP email và cấp lại phiên đăng nhập.</summary>
+        Task<AuthResultDto> VerifyEmailAsync(
             Guid userId,
-            VerifyPhoneRequest req,
+            VerifyOtpRequest req,
             CancellationToken cancellationToken = default);
 
         Task<AuthResultDto> UpdatePendingAccountAsync(

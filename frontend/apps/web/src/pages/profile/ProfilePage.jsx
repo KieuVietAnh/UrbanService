@@ -258,14 +258,14 @@ export const ProfilePage = () => {
     } catch (error) {
       console.error('ProfilePage profile update failed', error);
       /*
-       * Tài khoản chưa xác thực số điện thoại bị backend chặn mọi thao tác ghi, kể
+       * Tài khoản chưa xác thực email bị backend chặn mọi thao tác ghi, kể
        * cả sửa hồ sơ. Nói thẳng điều đó thay vì một câu chung chung khiến người
        * dùng bấm lưu đi lưu lại mà không hiểu vì sao.
        */
       const blockedCode = error?.response?.data?.data?.code;
       setToastMessage(
-        blockedCode === 'PHONE_NOT_VERIFIED'
-          ? 'Bạn cần xác thực số điện thoại trước khi sửa hồ sơ.'
+        blockedCode === 'EMAIL_NOT_VERIFIED'
+          ? 'Bạn cần xác thực email trước khi sửa hồ sơ.'
           : error?.response?.data?.msg
             || error?.response?.data?.message
             || 'Không thể cập nhật hồ sơ. Vui lòng thử lại.'
@@ -447,11 +447,11 @@ export const ProfilePage = () => {
               ) : (
                 <>
                   <p className="mt-1 text-xs profile-hero-metric-copy text-slate-500">
-                    Xác thực số điện thoại để gửi được phản ánh.
+                     Xác thực email để gửi được phản ánh.
                   </p>
                   <button
                     type="button"
-                    onClick={() => navigate('/verify-phone', { state: { from: '/profile' } })}
+                    onClick={() => navigate('/verify-email', { state: { from: '/profile' } })}
                     className="mt-3 inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white transition hover:bg-blue-700"
                   >
                     <Lucide.ShieldCheck size={14} aria-hidden="true" />
@@ -680,14 +680,7 @@ export const ProfilePage = () => {
                   </div>
                   <p id="profile-phone-hint" className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--public-muted)]">
                     <Lucide.ShieldCheck size={13} aria-hidden="true" className="text-blue-500" />
-                    Số điện thoại là thông tin đã xác thực nên chỉ đổi được qua bước nhập mã OTP.
-                    <button
-                      type="button"
-                      onClick={() => navigate('/verify-phone', { state: { from: '/profile' } })}
-                      className="font-semibold text-blue-600 underline-offset-2 hover:underline"
-                    >
-                      Đổi số điện thoại
-                    </button>
+                    Số điện thoại là thông tin liên hệ trong hồ sơ và không dùng để xác thực tài khoản.
                   </p>
                 </div>
 

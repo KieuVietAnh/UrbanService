@@ -22,12 +22,8 @@ interface AuthState {
   login: (email: string, password: string) => Promise<User>;
   googleLogin: (idToken: string) => Promise<User>;
   register: (data: RegisterData) => Promise<User>;
-  requestPhoneOtp: (phoneNumber: string) => Promise<{
-    phoneNumber: string;
-    remainingToday: number | null;
-    isTestNumber: boolean;
-  }>;
-  verifyPhoneOtp: (otp: string) => Promise<User>;
+  requestEmailVerificationOtp: () => Promise<void>;
+  verifyEmailOtp: (otp: string) => Promise<User>;
   logout: () => Promise<void>;
   clearError: () => void;
   setUser: (user: User | null) => void;
@@ -137,10 +133,10 @@ export const useAuthStore = create<AuthState>()(
           }
         },
 
-        requestPhoneOtp: async (phoneNumber: string) => {
+        requestEmailVerificationOtp: async () => {
           set({ isLoading: true, error: null });
           try {
-            const result = await withRequestTimeout(AuthService.requestPhoneOtp(phoneNumber));
+            const result = await withRequestTimeout(AuthService.requestEmailVerificationOtp());
             set({ isLoading: false });
             return result;
           } catch (err: unknown) {
@@ -152,12 +148,12 @@ export const useAuthStore = create<AuthState>()(
           }
         },
 
-        verifyPhoneOtp: async (otp: string) => {
+        verifyEmailOtp: async (otp: string) => {
           set({ isLoading: true, error: null });
           try {
             const requestUser = get().user;
             if (!requestUser) throw new Error('Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại.');
-            const verifiedUser = await withRequestTimeout(AuthService.verifyPhoneOtp(otp));
+            const verifiedUser = await withRequestTimeout(AuthService.verifyEmailOtp(otp));
             if (!verifiedUser.id || verifiedUser.id !== requestUser.id) {
               throw new Error('Phiên đăng nhập đã thay đổi. Vui lòng xác thực lại bằng tài khoản hiện tại.');
             }

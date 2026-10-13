@@ -21,9 +21,9 @@ export const ProtectedRoute = ({ children }) => {
   }
 
   /*
-   * Tài khoản chưa xác thực số điện thoại vẫn xem được bảng tin, bản đồ sự cố và
+   * Tài khoản chưa xác thực email vẫn xem được bảng tin, bản đồ sự cố và
    * thông báo. Ràng buộc chỉ đặt ở thao tác ghi — backend từ chối bằng
-   * PHONE_NOT_VERIFIED — nên chặn cả trang ở đây là chặn thừa.
+   * EMAIL_NOT_VERIFIED — nên chặn cả trang ở đây là chặn thừa.
    */
 
   return children;

@@ -36,7 +36,7 @@ const saveUserSession = (response) => {
   const userPayload = response?.user ?? response?.data?.user ?? payload;
   const token = extractToken(response);
   const refreshToken = extractRefreshToken(response);
-  // Mã nghiệp vụ backend trả kèm, ví dụ PHONE_NOT_VERIFIED. Client dùng để rẽ nhánh
+  // Mã nghiệp vụ backend trả kèm, ví dụ EMAIL_NOT_VERIFIED. Client dùng để rẽ nhánh
   // giao diện; không dùng để đoán role nữa vì backend đã trả role thật, mà đoán
   // SERVICEUSER thì sẽ dựng nhầm menu người dân cho một tài khoản staff.
   const responseCode = response?.code ?? payload?.code ?? null;
@@ -102,24 +102,13 @@ export const authApi = {
     return { success: true };
   },
 
-  /**
-   * Xin phép gửi SMS OTP. Chỉ gọi Firebase sau khi hàm này trả về thành công:
-   * hạn mức nằm ở backend vì mỗi tin nhắn là chi phí thật.
-   * Trả về remainingToday = null khi là số test (không tốn SMS).
-   */
-  async requestPhoneOtp(phoneNumber) {
-    const response = await sharedAuthApi.requestPhoneOtp(phoneNumber);
-    const payload = response?.data ?? response;
-    return {
-      phoneNumber: payload?.phoneNumber ?? phoneNumber,
-      remainingToday: payload?.remainingToday ?? null,
-      isTestNumber: payload?.isTestNumber === true,
-    };
+  async requestEmailVerificationOtp() {
+    await sharedAuthApi.sendEmailVerificationOtp();
+    return { success: true };
   },
 
-  /** idToken: Firebase ID token nhận được sau khi người dùng nhập đúng OTP. */
-  async verifyPhone(idToken) {
-    const response = await sharedAuthApi.verifyPhone(idToken);
+  async verifyEmail(otp) {
+    const response = await sharedAuthApi.verifyEmail(otp);
     return saveUserSession(response);
   },
 

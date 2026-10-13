@@ -294,11 +294,6 @@ const getRegisterErrorDetails = (err) => {
   };
 };
 
-const getOtpSessionKey = (user, fallbackEmail = '') => {
-  const identity = user?.userId || user?.email || fallbackEmail || 'current-user';
-  return `urbanmind:otp-sent:${identity}`;
-};
-
 export const RegisterPage = () => {
   const {
     user,
@@ -357,10 +352,10 @@ export const RegisterPage = () => {
     if (!user) return;
 
     /*
-     * Vừa bấm đăng ký xong thì hàm submit đã tự điều hướng, kèm cờ autoSend và số
-     * điện thoại vừa nhập. Effect này chạy ngay sau đó vì user thay đổi, và nếu nó
+     * Vừa bấm đăng ký xong thì hàm submit đã tự điều hướng kèm cờ autoSend. Effect
+     * này chạy ngay sau đó vì user thay đổi, và nếu nó
      * cũng điều hướng thì lần replace của nó sẽ xoá sạch state kia — trang xác thực
-     * mount lại với state rỗng nên quay về bước nhập số, đúng thứ vừa bỏ đi.
+     * mount lại với state rỗng nên không còn tự gửi OTP email.
      *
      * Effect này chỉ để lo trường hợp còn lại: người đã đăng nhập mà chưa xác thực
      * tự mở /register.
@@ -373,9 +368,8 @@ export const RegisterPage = () => {
     }
 
     if (!isEditingRegistration) {
-      navigate(buildAuthPath('/verify-phone', requestedRedirect), {
+      navigate(buildAuthPath('/verify-email', requestedRedirect), {
         replace: true,
-        state: { phoneNumber: user.phoneNumber || '' },
       });
     }
   }, [isEditingRegistration, navigate, requestedRedirect, user]);
@@ -479,8 +473,6 @@ export const RegisterPage = () => {
 
     try {
       if (isEditingRegistration) {
-        const previousSessionKey = getOtpSessionKey(user, user?.email);
-
         const updatedUser = await updatePendingRegistration({
           fullName: normalizedValues.fullName,
           email: normalizedValues.email,
@@ -497,14 +489,11 @@ export const RegisterPage = () => {
         setConfirmPassword('');
 
         void updatedUser;
-        if (previousSessionKey) {
-          window.sessionStorage.removeItem(previousSessionKey);
-        }
 
         submittedRef.current = true;
-        navigate(buildAuthPath('/verify-phone', requestedRedirect), {
+        navigate(buildAuthPath('/verify-email', requestedRedirect), {
           replace: true,
-          state: { registrationUpdated: true, phoneNumber: normalizedValues.phone },
+          state: { registrationUpdated: true, autoSend: true },
         });
         return;
       }
@@ -517,14 +506,13 @@ export const RegisterPage = () => {
       );
 
       /*
-       * Số điện thoại vừa nhập ở form này rồi, nên đưa thẳng sang bước nhập mã thay
-       * vì hỏi lại số lần nữa. Trang xác thực tự gửi mã khi thấy cờ autoSend.
+       * Chuyển thẳng sang xác thực email và tự gửi mã đúng một lần.
        */
       void registeredUser;
       submittedRef.current = true;
-      navigate(buildAuthPath('/verify-phone', requestedRedirect), {
+      navigate(buildAuthPath('/verify-email', requestedRedirect), {
         replace: true,
-        state: { autoSend: true, phoneNumber: normalizedValues.phone },
+        state: { autoSend: true },
       });
     } catch (err) {
       const registerError = getRegisterErrorDetails(err);
@@ -834,7 +822,7 @@ export const RegisterPage = () => {
             <p>
               {isEditingRegistration
                 ? 'Có thể sửa email và mật khẩu trước khi xác thực. Đổi email sẽ tạo mã OTP mới.'
-                : 'Sau khi đăng ký, hệ thống sẽ chuyển bạn sang bước xác thực số điện thoại.'}
+                : 'Sau khi đăng ký, hệ thống sẽ gửi mã OTP để xác thực email.'}
             </p>
           </div>
 
@@ -859,8 +847,8 @@ export const RegisterPage = () => {
 
         <p className="auth-login-register relative z-10 mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
           {isEditingRegistration ? (
-            <Link to={buildAuthPath('/verify-phone', requestedRedirect)} className="font-semibold text-blue-700 hover:underline dark:text-blue-300">
-              Quay lại xác thực số điện thoại
+            <Link to={buildAuthPath('/verify-email', requestedRedirect)} className="font-semibold text-blue-700 hover:underline dark:text-blue-300">
+              Quay lại xác thực email
             </Link>
           ) : (
             <>

@@ -1,18 +1,11 @@
 import {
   authApi,
-  normalizePhone,
   setAuthToken,
   setAuthRefreshToken,
   clearAuthTokens,
 } from '@urbanmind/shared-api';
 import { getInternalRole } from '@urbanmind/shared-types';
 import type { User } from '@/types';
-import {
-  assertFirebasePhoneAuthAvailable,
-  clearFirebasePhoneSession,
-  confirmFirebasePhoneOtp,
-  sendFirebasePhoneOtp,
-} from './firebase-phone.service';
 
 type ApiRecord = Record<string, unknown>;
 
@@ -148,37 +141,14 @@ export class AuthService {
     return persistAuthenticatedSession(response, user);
   }
 
-  static async requestPhoneOtp(phoneNumber: string): Promise<{
-    phoneNumber: string;
-    remainingToday: number | null;
-    isTestNumber: boolean;
-  }> {
-    const normalized = normalizePhone(phoneNumber);
-    if (!normalized) {
-      throw new Error('Số điện thoại chưa hợp lệ. Vui lòng nhập 10 chữ số, ví dụ 0901 234 567.');
-    }
-
-    await assertFirebasePhoneAuthAvailable();
-    const response = await authApi.requestPhoneOtp(normalized);
-    const extracted = extractData(response);
-    const payload = isApiRecord(extracted) ? extracted : {};
-    const approvedPhone = String(payload.phoneNumber || normalized);
-
-    await sendFirebasePhoneOtp(approvedPhone);
-    return {
-      phoneNumber: approvedPhone,
-      remainingToday: typeof payload.remainingToday === 'number' ? payload.remainingToday : null,
-      isTestNumber: payload.isTestNumber === true,
-    };
+  static async requestEmailVerificationOtp(): Promise<void> {
+    await authApi.sendEmailVerificationOtp();
   }
 
-  static async verifyPhoneOtp(otp: string): Promise<User> {
-    const idToken = await confirmFirebasePhoneOtp(otp);
-    const response = await authApi.verifyPhone(idToken);
+  static async verifyEmailOtp(otp: string): Promise<User> {
+    const response = await authApi.verifyEmail(otp);
     const user = buildUser(response);
-    const authenticatedUser = await persistAuthenticatedSession(response, user);
-    clearFirebasePhoneSession();
-    return authenticatedUser;
+    return persistAuthenticatedSession(response, user);
   }
 
   static async logout(): Promise<void> {
@@ -189,6 +159,5 @@ export class AuthService {
     }
 
     await clearAuthTokens();
-    clearFirebasePhoneSession();
   }
 }

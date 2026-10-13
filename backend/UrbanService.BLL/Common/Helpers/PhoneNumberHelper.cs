@@ -5,9 +5,8 @@ namespace UrbanService.BLL.Common.Helpers;
 /// <summary>
 /// Chuẩn hoá số điện thoại về E.164, mặc định mã quốc gia Việt Nam.
 ///
-/// Firebase chỉ nhận số ở dạng E.164, và số lưu trong database phải cùng dạng thì
-/// mới so khớp được với số nằm trong Firebase ID token. Frontend dùng đúng quy tắc
-/// này ở `packages/shared-api/src/phone.js`.
+/// Số lưu trong database dùng cùng một định dạng để so sánh và hiển thị nhất quán.
+/// Frontend dùng đúng quy tắc này ở `packages/shared-api/src/phone.js`.
 /// </summary>
 public static partial class PhoneNumberHelper
 {

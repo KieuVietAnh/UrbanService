@@ -123,7 +123,7 @@ database thay cho `host.docker.internal`.
 | --- | --- |
 | Upload ảnh | `Cloudinary` |
 | Email | `Brevo` |
-| SMS OTP xác thực SĐT | `Firebase`, `PhoneOtp` |
+| Email OTP | `Brevo` |
 | Google login | `GoogleAuth` |
 | AI | `AI`, `OpenRouter` |
 | Messenger bot | `Messenger` |
@@ -132,98 +132,45 @@ database thay cho `host.docker.internal`.
 
 Xem tên biến môi trường Docker trong [docker-compose.yml](docker-compose.yml).
 
-Tài khoản được xác thực bằng **OTP gửi qua SMS tới số điện thoại**, dùng Firebase
-Phone Authentication. Email vẫn bắt buộc khi đăng ký nhưng dành cho luồng quên mật
-khẩu, vì gửi email gần như không tốn gì trong khi mỗi tin SMS là chi phí thật.
-
-Backend **không gửi SMS**. Firebase gửi từ phía client; backend xác minh Firebase ID
-token bằng Admin SDK rồi lấy số điện thoại **từ trong token đã kiểm tra chữ ký**,
-không tin số client gửi lên — nếu không thì gửi đại một số là qua cửa.
+Tài khoản được xác thực bằng **OTP gửi tới email** qua nhà cung cấp Brevo đang
+cấu hình cho hệ thống. Số điện thoại vẫn là thông tin liên hệ của hồ sơ, nhưng không
+còn dùng làm danh tính đăng nhập hoặc kênh nhận OTP.
 
 ```text
-POST /api/auth/register                      -> tạo tài khoản, trả JWT (isVerified=false), KHÔNG gửi OTP
-POST /api/auth/google-login                  -> lần đầu tự tạo tài khoản, isVerified=false
-POST /api/auth/phone-verification/request-otp -> [Authorize] xin phép gửi SMS, kiểm tra hạn mức
-POST /api/auth/phone-verification/verify      -> [Authorize] gửi Firebase ID token, isVerified=true
+POST /api/auth/register                       -> tạo tài khoản, trả JWT (isVerified=false), không gửi OTP
+POST /api/auth/google-login                   -> Google đã xác thực email, trả isVerified=true
+POST /api/auth/email-verification/send-otp    -> [Authorize] gửi OTP tới email hiện tại
+POST /api/auth/email-verification/verify      -> [Authorize] kiểm tra OTP, trả JWT mới với isVerified=true
 PATCH /api/auth/pending-account               -> [Authorize] sửa thông tin tài khoản chưa xác thực
 ```
 
-`request-otp` không gửi gì cả: nó kiểm tra số hợp lệ, chưa thuộc tài khoản đã xác
-thực khác, và hôm nay còn hạn mức, rồi ghi một lượt vào `phone_otp_requests`. Client
-chỉ gọi `signInWithPhoneNumber` của Firebase **sau khi** endpoint này trả `200`. Hạn
-mức phải nằm ở backend vì API key Firebase của web là công khai; chặn ở frontend thì
-người gọi thẳng Firebase vẫn đốt tiền.
-
-| Hạn mức | Mặc định | Phạm vi | Cấu hình |
-| --- | --- | --- | --- |
-| SMS OTP | 5 / ngày | Toàn hệ thống, giờ Việt Nam | `PhoneOtp:DailyLimit` |
-| Gửi phản ánh | 3 / ngày | Mỗi tài khoản, chỉ kênh Web | `FeedbackLimits:DailyPerUser` |
-
-Số test của Firebase Console dùng mã cố định, không phát sinh SMS thật nên **không
-tính vào hạn mức**. Khai bằng một trong hai cách, hệ thống gộp cả hai:
-
-- `PhoneOtp:TestNumbers` — mảng trong `appsettings.json`, tiện lúc chạy máy cá nhân.
-- `PhoneOtp:TestNumbersCsv` — chuỗi ngăn cách bằng dấu phẩy, khai qua biến môi trường
-  `PHONE_OTP_TEST_NUMBERS`. Dùng cho môi trường deploy, vì mảng trong appsettings chỉ
-  ghi đè được bằng biến chỉ số kiểu `PhoneOtp__TestNumbers__0`, rất khó dùng.
-
-Danh sách này phải **khớp với Firebase Console**: một số có ở đây mà thiếu bên Console
-sẽ vừa gửi tin thật vừa không bị tính lượt.
+OTP xác thực email có hiệu lực 5 phút, giới hạn 5 lần nhập sai và thời gian chờ gửi
+lại 60 giây. OTP được lưu tạm trong memory cache giống luồng quên mật khẩu, nên sẽ
+mất khi backend khởi động lại.
 
 Xác thực **không** phải điều kiện để đăng nhập, mà là điều kiện để **ghi dữ liệu**.
 Người dùng chưa xác thực vẫn đăng nhập, xem bảng tin, bản đồ sự cố và nhận thông báo
-bình thường; mọi thao tác ghi bị chặn với `403` và `data.code = PHONE_NOT_VERIFIED`.
+bình thường; thao tác ghi bị chặn với `403` và `data.code = EMAIL_NOT_VERIFIED`.
 
-Ràng buộc nằm ở `PhoneVerifiedWriteFilter`, đăng ký toàn cục nên không endpoint ghi
-nào lọt lưới. Filter chỉ áp cho role `SERVICEUSER`: tài khoản nội bộ do admin tạo có
-`is_verified` mặc định `false`, áp cho mọi role sẽ khóa sạch thao tác của staff,
-manager và admin ngay lúc deploy. Các API hoàn tất đăng ký được đánh dấu
-`[AllowUnverifiedPhone]` nên vẫn gọi được, nếu không người dùng sẽ không có đường
-nào để tự xác thực.
+Ràng buộc nằm ở `EmailVerifiedWriteFilter`, đăng ký toàn cục và chỉ áp cho role
+`SERVICEUSER`. Các API hoàn tất đăng ký được đánh dấu `[AllowUnverifiedEmail]`.
 
-Đăng nhập bằng tài khoản chưa xác thực vẫn trả `200` và vẫn có token, nhưng body
-khác:
+Đăng nhập bằng tài khoản chưa xác thực vẫn trả `200` và vẫn có token:
 
 ```jsonc
 {
-  "code": "PHONE_NOT_VERIFIED",
-  "message": "Số điện thoại chưa được xác thực.",
+  "code": "EMAIL_NOT_VERIFIED",
+  "message": "Email chưa được xác thực.",
   "token": "...",
   "refreshToken": "...",
   "user": { "id": "...", "email": "...", "fullName": "...", "phoneNumber": "...", "role": "SERVICEUSER", "isVerified": false }
 }
 ```
 
-`pending-account` dùng cho trường hợp gõ nhầm thông tin lúc đăng ký và muốn quay lại
-sửa. Giữ nguyên email hoặc số điện thoại của chính tài khoản thì không báo trùng;
-đổi sang giá trị của tài khoản khác thì trả `400`. Endpoint này không gửi OTP —
-người dùng bấm gửi mã ở màn xác thực, nơi hạn mức được đếm. Response trả JWT mới.
-
-Đăng nhập nhận **email hoặc số điện thoại** ở cùng một ô: chuỗi nào chuẩn hoá được
-về E.164 thì tra theo số, còn lại tra theo email.
-
-Email đã có tài khoản thì đăng ký luôn báo trùng, kể cả khi tài khoản đó chưa xác
-thực. Cho đăng ký đè lên tài khoản chưa xác thực sẽ mở đường chiếm tài khoản: ai
-biết email đó chỉ cần đăng ký lại là ghi đè được cả mật khẩu lẫn số điện thoại của
-người ta. Người bỏ dở giữa chừng quay lại bằng cách đăng nhập, hoặc dùng luồng quên
-mật khẩu qua email.
-
-Đăng nhập Google tạo tài khoản với `isVerified = false`: Google chứng minh email chứ
-không chứng minh số điện thoại, và tài khoản kiểu này còn chưa có số nào.
-
-`request-otp` **không** ghi số điện thoại vào hồ sơ. Người dùng có thể gõ một số khác
-rồi bỏ ngang, khi đó hồ sơ sẽ mang một số không ai chứng minh được còn số đăng ký ban
-đầu thì mất. Số chỉ được ghi đè ở bước `verify`, lấy từ token Firebase.
-
-Một số điện thoại chỉ gắn với một tài khoản. Đăng ký bằng số đã có tài khoản thì
-báo trùng, giống như email. Ràng buộc đặt ở tầng nghiệp vụ chứ không phải unique
-index, vì dữ liệu hiện có có thể đã trùng số mà migration lỗi thì container mới
-không khởi động được.
-
-Số điện thoại là **danh tính đã xác thực**, nên `PUT /api/profile` bỏ qua trường
-`phoneNumber`: cho sửa tự do ở hồ sơ thì một tài khoản đang mang cờ đã xác thực có
-thể trỏ sang số chưa ai kiểm chứng. Muốn đổi số thì đi qua luồng OTP, nơi số mới
-được lấy từ token Firebase. Admin vẫn sửa được số qua API quản trị người dùng.
+`pending-account` cho phép sửa thông tin trước khi xác thực. Nếu đổi email, OTP và
+thời gian chờ của email cũ bị hủy để người dùng có thể gửi mã mới ngay. Đăng nhập
+bằng mật khẩu chỉ nhận email. Đăng nhập Google được xem là đã xác thực vì Google đã
+xác minh quyền sở hữu email.
 
 Luồng quên mật khẩu vẫn đi qua **email**, tách làm ba bước, OTP chỉ bị tiêu thụ ở
 bước cuối:

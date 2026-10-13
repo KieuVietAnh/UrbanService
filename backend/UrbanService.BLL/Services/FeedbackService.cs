@@ -2111,7 +2111,7 @@ public class FeedbackService : IFeedbackService
     }
 
     /// <summary>
-    /// Điều kiện để người dân gửi phản ánh từ web: đã xác thực số điện thoại, và
+    /// Điều kiện để người dân gửi phản ánh từ web: đã xác thực email, và
     /// chưa chạm trần số phản ánh trong ngày.
     ///
     /// Xác thực là nơi ràng buộc trách nhiệm — phản ánh sai sự thật còn truy được
@@ -2143,8 +2143,8 @@ public class FeedbackService : IFeedbackService
         if (isVerified != true)
         {
             throw new BusinessRuleException(
-                BusinessErrorCode.PhoneNotVerified,
-                "Bạn cần xác thực số điện thoại trước khi gửi phản ánh.",
+                BusinessErrorCode.EmailNotVerified,
+                "Bạn cần xác thực email trước khi gửi phản ánh.",
                 StatusCodes.Status403Forbidden);
         }
 

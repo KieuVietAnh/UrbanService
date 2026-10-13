@@ -25,10 +25,10 @@ public partial class User
 
     public bool IsVerified { get; set; }
 
-    /// <summary>UID của tài khoản Firebase đã dùng để xác thực số điện thoại.</summary>
+    /// <summary>Dữ liệu Firebase cũ, giữ lại để tương thích schema hiện tại.</summary>
     public string? FirebaseUid { get; set; }
 
-    /// <summary>Thời điểm xác thực số điện thoại thành công qua OTP.</summary>
+    /// <summary>Thời điểm xác thực số điện thoại cũ, không còn dùng cho luồng email OTP.</summary>
     public DateTime? PhoneVerifiedAt { get; set; }
 
     public string? RefreshToken { get; set; }

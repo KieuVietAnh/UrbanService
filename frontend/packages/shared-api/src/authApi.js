@@ -42,18 +42,12 @@ export const authApi = {
     });
   },
 
-  /**
-   * Xin phép gửi SMS OTP. Backend kiểm tra hạn mức rồi mới cho phép; chỉ gọi
-   * Firebase sau khi hàm này trả về thành công, vì mỗi tin SMS là chi phí thật.
-   * Bỏ trống phoneNumber để dùng số đã lưu trên tài khoản.
-   */
-  requestPhoneOtp(phoneNumber) {
-    return axiosClient.post('/api/auth/phone-verification/request-otp', { phoneNumber });
+  sendEmailVerificationOtp() {
+    return axiosClient.post('/api/auth/email-verification/send-otp');
   },
 
-  /** idToken: Firebase ID token lấy được sau khi người dùng nhập đúng OTP. */
-  verifyPhone(idToken) {
-    return axiosClient.post('/api/auth/phone-verification/verify', { idToken });
+  verifyEmail(otp) {
+    return axiosClient.post('/api/auth/email-verification/verify', { otp });
   },
 
   logout() {

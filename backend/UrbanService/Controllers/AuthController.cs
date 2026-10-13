@@ -50,8 +50,8 @@ namespace UrbanService.Controllers
         /// <response code="200">
         /// Đăng nhập thành công, trả về JWT và thông tin người dùng.
         ///
-        /// Tài khoản chưa xác thực số điện thoại cũng trả `200` và vẫn có token,
-        /// nhưng body là `UnverifiedLoginResultDto` với `code = PHONE_NOT_VERIFIED`.
+        /// Tài khoản chưa xác thực email cũng trả `200` và vẫn có token,
+        /// nhưng body là `UnverifiedLoginResultDto` với `code = EMAIL_NOT_VERIFIED`.
         /// Token đó đọc được dữ liệu bình thường nhưng bị từ chối ở mọi thao tác ghi,
         /// trừ các API hoàn tất đăng ký.
         /// </response>
@@ -109,9 +109,7 @@ namespace UrbanService.Controllers
         /// `email_verified`, rồi yêu cầu tài khoản đang hoạt động.
         ///
         /// Lần đăng nhập đầu tiên **có** tạo tài khoản mới, nhưng với
-        /// `isVerified = false`: Google chứng minh quyền sở hữu email, không phải
-        /// số điện thoại, mà cờ này nay mang nghĩa đã xác thực SĐT. Tài khoản kiểu
-        /// này phải qua luồng `phone-verification` trước khi ghi được gì.
+        /// `isVerified = true` vì Google đã xác minh quyền sở hữu email.
         /// </remarks>
         [HttpPost("google-login")]
         [AllowAnonymous]
@@ -185,17 +183,17 @@ namespace UrbanService.Controllers
             return NoContent();
         }
 
-        /// <summary>Sửa thông tin đăng ký của tài khoản chưa xác thực số điện thoại.</summary>
+        /// <summary>Sửa thông tin đăng ký của tài khoản chưa xác thực email.</summary>
         /// <remarks>
         /// Yêu cầu JWT hợp lệ. Dùng khi người dùng gõ nhầm email hoặc số điện thoại
-        /// lúc đăng ký: gõ nhầm số thì OTP gửi tới máy người khác nên không tự xác
-        /// thực được, mà đăng ký lại cũng không xong vì email cũ đã chiếm chỗ.
+        /// lúc đăng ký. Nếu email sai, OTP sẽ gửi tới địa chỉ khác; đăng ký lại cũng
+        /// không xong vì email cũ đã thuộc tài khoản hiện tại.
         ///
         /// Giữ nguyên email của chính tài khoản thì **không** báo trùng. Đổi sang
         /// email đang thuộc tài khoản khác thì trả `400`.
         ///
-        /// Endpoint này **không** gửi OTP. Người dùng bấm gửi mã ở màn xác thực, nơi
-        /// hạn mức SMS được đếm. Số điện thoại là bắt buộc và được chuẩn hoá về E.164.
+        /// Endpoint này **không** gửi OTP. Người dùng bấm gửi mã ở màn xác thực email.
+        /// Số điện thoại vẫn bắt buộc và được chuẩn hoá về E.164.
         ///
         /// Response trả JWT mới vì email nằm trong claim của token.
         /// </remarks>
@@ -203,7 +201,7 @@ namespace UrbanService.Controllers
         /// <response code="400">Email hoặc số điện thoại không hợp lệ, hoặc tài khoản đã xác thực.</response>
         [HttpPatch("pending-account")]
         [Authorize]
-        [AllowUnverifiedPhone]
+        [AllowUnverifiedEmail]
         [EnableRateLimiting(RateLimitPolicyNames.UserWrite)]
         [ProducesResponseType(typeof(AuthResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
@@ -219,65 +217,35 @@ namespace UrbanService.Controllers
             return Ok(result);
         }
 
-        /// <summary>Xin phép gửi SMS OTP xác thực số điện thoại.</summary>
-        /// <remarks>
-        /// Yêu cầu JWT hợp lệ. Backend **không** gửi SMS — Firebase gửi từ phía client.
-        /// Endpoint này chỉ kiểm tra điều kiện rồi ghi nhận một lượt: số hợp lệ, chưa
-        /// thuộc tài khoản đã xác thực khác, và hôm nay hệ thống còn hạn mức SMS.
-        ///
-        /// Client chỉ được gọi `signInWithPhoneNumber` của Firebase **sau khi** endpoint
-        /// này trả `200`. Mỗi tin SMS là chi phí thật nên hạn mức nằm ở backend; chặn ở
-        /// frontend thì người gọi thẳng Firebase bằng API key công khai vẫn đốt tiền.
-        ///
-        /// Bỏ trống `phoneNumber` để dùng số đã lưu trên tài khoản. Gửi số khác thì số
-        /// của tài khoản được cập nhật luôn, phục vụ trường hợp gõ nhầm lúc đăng ký.
-        ///
-        /// Số khai trong `PhoneOtp:TestNumbers` không tốn SMS nên không tính lượt và
-        /// trả `remainingToday = null`.
-        /// </remarks>
-        /// <response code="200">Được phép gửi OTP.</response>
-        /// <response code="409">Số điện thoại đã thuộc về tài khoản đã xác thực khác.</response>
-        /// <response code="429">Hết hạn mức SMS trong ngày.</response>
-        [HttpPost("phone-verification/request-otp")]
+        /// <summary>Gửi OTP xác thực tới email của tài khoản hiện tại.</summary>
+        [HttpPost("email-verification/send-otp")]
         [Authorize]
-        [AllowUnverifiedPhone]
-        [ProducesResponseType(typeof(RequestPhoneOtpResultDto), StatusCodes.Status200OK)]
+        [AllowUnverifiedEmail]
+        [EnableRateLimiting(RateLimitPolicyNames.Otp)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
-        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
-        public async Task<IActionResult> RequestPhoneOtp(
-            [FromBody] RequestPhoneOtpRequest req,
+        public async Task<IActionResult> SendEmailVerificationOtp(
             CancellationToken cancellationToken)
-            => Ok(await _auth.RequestPhoneOtpAsync(GetCurrentUserId(), req, cancellationToken));
+        {
+            await _auth.RequestEmailVerificationOtpAsync(
+                GetCurrentUserId(),
+                cancellationToken);
+            return NoContent();
+        }
 
-        /// <summary>Xác thực số điện thoại bằng Firebase ID token.</summary>
-        /// <remarks>
-        /// Yêu cầu JWT hợp lệ. Client gửi lên `idToken` nhận được từ Firebase sau khi
-        /// người dùng nhập đúng OTP.
-        ///
-        /// Số điện thoại được lấy từ token đã qua kiểm tra chữ ký của Firebase Admin
-        /// SDK, không lấy từ request — nếu không thì client chỉ cần gửi đại một số là
-        /// qua cửa. Token chỉ dùng được trong vòng `Firebase:MaxAuthAgeMinutes` phút
-        /// kể từ lúc nhập OTP.
-        ///
-        /// Thành công thì `isVerified = true` và response trả JWT mới, vì trạng thái
-        /// xác thực nằm trong claim của token.
-        /// </remarks>
-        /// <response code="200">Xác thực thành công, trả JWT mới.</response>
-        /// <response code="400">Token không hợp lệ hoặc đã quá hạn.</response>
-        /// <response code="409">Số điện thoại đã thuộc về tài khoản đã xác thực khác.</response>
-        [HttpPost("phone-verification/verify")]
+        /// <summary>Xác thực email bằng OTP và cấp lại phiên đăng nhập.</summary>
+        [HttpPost("email-verification/verify")]
         [Authorize]
-        [AllowUnverifiedPhone]
+        [AllowUnverifiedEmail]
+        [EnableRateLimiting(RateLimitPolicyNames.Otp)]
         [ProducesResponseType(typeof(AuthResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
-        public async Task<IActionResult> VerifyPhone(
-            [FromBody] VerifyPhoneRequest req,
+        public async Task<IActionResult> VerifyEmail(
+            [FromBody] VerifyOtpRequest req,
             CancellationToken cancellationToken)
-            => Ok(await _auth.VerifyPhoneAsync(GetCurrentUserId(), req, cancellationToken));
+            => Ok(await _auth.VerifyEmailAsync(GetCurrentUserId(), req, cancellationToken));
 
         private Guid GetCurrentUserId()
         {

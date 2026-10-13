@@ -19,9 +19,10 @@ const AUTH_REQUEST_PATHS = [
   '/api/auth/google-login',
   '/api/auth/refresh-token',
   '/api/auth/forgot-password/send-otp',
+  '/api/auth/forgot-password/verify-otp',
   '/api/auth/forgot-password/reset',
-  '/api/auth/phone-verification/request-otp',
-  '/api/auth/phone-verification/verify',
+  '/api/auth/email-verification/send-otp',
+  '/api/auth/email-verification/verify',
 ];
 
 const getPayload = (value) => value?.data ?? value;

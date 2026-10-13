@@ -113,11 +113,9 @@ public class UserManagementService : IUserManagementService
         /*
          * Cố ý bỏ qua request.PhoneNumber.
          *
-         * Số điện thoại nay là danh tính đã được xác thực bằng OTP. Cho sửa tự do ở
-         * hồ sơ thì một tài khoản đang mang cờ đã xác thực có thể trỏ sang một số
-         * chưa ai kiểm chứng, và cơ chế truy nguyên trách nhiệm người gửi phản ánh
-         * mất ý nghĩa. Muốn đổi số thì đi qua luồng xác thực OTP, nơi số mới được
-         * lấy từ token Firebase.
+         * Số điện thoại hiện vẫn được quản trị tập trung để tránh thay đổi ngoài
+         * luồng hồ sơ hiện có. Trạng thái IsVerified nay phản ánh email, không còn
+         * phụ thuộc vào số điện thoại.
          *
          * Admin vẫn sửa được số qua UpdateUserAsync, đó là thao tác quản trị có
          * người chịu trách nhiệm.

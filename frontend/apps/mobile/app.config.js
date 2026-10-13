@@ -8,26 +8,10 @@ if (fs.existsSync(envFilePath)) {
 }
 
 module.exports = ({ config }) => {
-  const localGoogleServicesFile = path.resolve(__dirname, 'google-services.json');
-  const googleServicesFile =
-    process.env.GOOGLE_SERVICES_JSON?.trim()
-    || (fs.existsSync(localGoogleServicesFile) ? './google-services.json' : '');
-  const googleServiceInfoPlist = process.env.GOOGLE_SERVICE_INFO_PLIST?.trim();
-
   return {
     ...config,
-    android: {
-      ...config.android,
-      ...(googleServicesFile ? { googleServicesFile } : {}),
-    },
-    ios: {
-      ...config.ios,
-      ...(googleServiceInfoPlist ? { googleServicesFile: googleServiceInfoPlist } : {}),
-    },
     plugins: [
       './plugins/withGoogleMapsAndroidManifest.js',
-      '@react-native-firebase/app',
-      '@react-native-firebase/auth',
       'expo-router',
       [
         'expo-splash-screen',

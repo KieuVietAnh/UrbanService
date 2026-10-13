@@ -101,7 +101,7 @@ export default function RegisterScreen() {
         password: form.password,
       });
 
-      router.replace({ pathname: '/(auth)/verify-phone', params: { autoSend: '1' } });
+      router.replace({ pathname: '/(auth)/verify-email', params: { autoSend: '1' } });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Đăng ký thất bại. Vui lòng thử lại.');
     }
@@ -214,7 +214,7 @@ export default function RegisterScreen() {
               className="mt-4"
               rightIcon={<Icon name="arrow-right" size={18} color="#FFFFFF" style={{ marginLeft: 4 }} />}
             >
-              Tiếp tục xác thực số điện thoại
+              Tiếp tục xác thực email
             </AppButton>
 
             <Pressable onPress={() => router.replace('/(auth)/login')} className="mt-5 self-center">

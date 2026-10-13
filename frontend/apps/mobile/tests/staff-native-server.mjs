@@ -269,7 +269,7 @@ export function createStaffNativeServer({ requireOtp = false, quiet = false } = 
       if (path === '/api/auth/email-verification/verify' && method === 'POST') {
         if (String(body.otp) !== TEST_OTP) fail(400, 'Mã xác thực kiểm thử không chính xác.');
         state.staff.isVerified = true;
-        return send(undefined, 204);
+        return send(issueSession());
       }
       if (!state.staff.isVerified) fail(403, 'Hãy xác thực email trước khi sử dụng Staff.');
       if (path === '/api/areas' && method === 'GET') return send([{ areaId: 3, areaName: 'Phường Tân Phong' }, { areaId: 7, areaName: 'Phường Bình Thuận' }]);
@@ -472,11 +472,9 @@ async function selfTest() {
     await request('/api/profile', 'GET', undefined, 403);
     await request('/api/auth/email-verification/send-otp', 'POST', undefined, 204);
     await request('/api/auth/email-verification/verify', 'POST', { otp: '000000' }, 400);
-    const verified = await request('/api/auth/email-verification/verify', 'POST', { otp: TEST_OTP }, 204);
-    check(verified, null);
-    const refreshed = await request('/api/auth/refresh-token', 'POST', { refreshToken: login.refreshToken });
-    check(refreshed.isVerified, true);
-    token = refreshed.token;
+    const verified = await request('/api/auth/email-verification/verify', 'POST', { otp: TEST_OTP });
+    check(verified.isVerified, true);
+    token = verified.token;
     await request('/api/profile', 'GET', undefined, 403);
     await request('/api/profile', 'PUT', { fullName: 'Không được sửa', phoneNumber: '0902222333' }, 403);
     const page = await request('/api/management/incidents?PageNumber=2&PageSize=20'); check(page.items.length, 5); check(page.totalItems, 25);

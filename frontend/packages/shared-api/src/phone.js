@@ -5,9 +5,8 @@ const DEFAULT_COUNTRY_CODE = '84';
  * "0901 234 567" / "84901234567" / "+84901234567" -> "+84901234567".
  * Trả về null nếu không hợp lệ.
  *
- * Firebase chỉ nhận số ở dạng E.164, và backend so khớp số trong database với số
- * nằm trong Firebase ID token, nên hai bên phải dùng cùng một quy tắc. Bản C# nằm
- * ở UrbanService.BLL/Common/Helpers/PhoneNumberHelper.cs.
+ * Frontend và backend cùng lưu số ở dạng E.164 để so sánh và hiển thị nhất quán.
+ * Bản C# nằm ở UrbanService.BLL/Common/Helpers/PhoneNumberHelper.cs.
  */
 export function normalizePhone(input) {
   const trimmed = String(input ?? '').trim();

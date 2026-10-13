@@ -1,10 +1,9 @@
 namespace UrbanService.DAL.Entities;
 
 /// <summary>
-/// Một lần hệ thống cho phép client gọi Firebase gửi SMS OTP.
-///
-/// Firebase tính phí từng tin nhắn nên hạn mức phải đếm được và phải sống sót qua
-/// restart container; giữ trong bộ nhớ thì mỗi lần deploy là hạn mức lại về 0.
+/// Dữ liệu hạn mức OTP số điện thoại của luồng Firebase cũ.
+/// Giữ entity để tương thích schema và dữ liệu hiện tại; luồng xác thực email không
+/// còn ghi hoặc đọc bảng này.
 /// </summary>
 public partial class PhoneOtpRequest
 {

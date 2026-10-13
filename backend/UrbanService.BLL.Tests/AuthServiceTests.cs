@@ -1,5 +1,7 @@
 ﻿using System.Text.RegularExpressions;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
@@ -8,8 +10,8 @@ using NSubstitute;
 using UrbanService.BLL.Common.Securities;
 using UrbanService.BLL.Dtos;
 using UrbanService.BLL.Interfaces;
-using UrbanService.BLL.Options;
 using UrbanService.BLL.Services;
+using UrbanService.Authorization;
 using UrbanService.Controllers;
 using UrbanService.DAL.Entities;
 using UrbanService.DAL.Interfaces;
@@ -19,6 +21,136 @@ namespace UrbanService.BLL.Tests;
 
 public class AuthServiceTests
 {
+    [Fact]
+    public async Task EmailVerificationEndpoints_ReturnExpectedResponses()
+    {
+        var userId = Guid.NewGuid();
+        var authService = Substitute.For<IAuthService>();
+        authService.RequestEmailVerificationOtpAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        authService.VerifyEmailAsync(
+                userId,
+                Arg.Any<VerifyOtpRequest>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new AuthResultDto { UserId = userId, IsVerified = true });
+        var controller = new AuthController(authService)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(
+                        [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
+                        "test"))
+                }
+            }
+        };
+
+        var sendResult = await controller.SendEmailVerificationOtp(default);
+        var verifyResult = await controller.VerifyEmail(
+            new VerifyOtpRequest { Otp = "123456" },
+            default);
+
+        Assert.IsType<NoContentResult>(sendResult);
+        var ok = Assert.IsType<OkObjectResult>(verifyResult);
+        Assert.True(Assert.IsType<AuthResultDto>(ok.Value).IsVerified);
+        Assert.NotNull(typeof(AuthController)
+            .GetMethod(nameof(AuthController.SendEmailVerificationOtp))!
+            .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: true)
+            .SingleOrDefault());
+        Assert.NotNull(typeof(AuthController)
+            .GetMethod(nameof(AuthController.VerifyEmail))!
+            .GetCustomAttributes(typeof(AllowUnverifiedEmailAttribute), inherit: true)
+            .SingleOrDefault());
+    }
+
+    [Fact]
+    public async Task EmailVerification_ValidOtp_MarksUserVerifiedAndIssuesSession()
+    {
+        using var context = new AuthTestContext();
+        var user = context.User("citizen@urban.test", isVerified: false);
+
+        await context.Service.RequestEmailVerificationOtpAsync(user.UserId);
+        var message = Assert.Single(context.SentEmails);
+        var otp = Regex.Match(message.Body, @"(?<!\d)\d{6}(?!\d)").Value;
+        var result = await context.Service.VerifyEmailAsync(
+            user.UserId,
+            new VerifyOtpRequest { Otp = otp });
+
+        Assert.True(user.IsVerified);
+        Assert.True(result.IsVerified);
+        Assert.Equal(user.Email, Assert.Single(message.To));
+    }
+
+    [Fact]
+    public async Task EmailVerification_NormalizesStoredEmailForSendingAndVerification()
+    {
+        using var context = new AuthTestContext();
+        var user = context.User("  Citizen@Urban.Test  ", isVerified: false);
+
+        await context.Service.RequestEmailVerificationOtpAsync(user.UserId);
+        var message = Assert.Single(context.SentEmails);
+        var otp = Regex.Match(message.Body, @"(?<!\d)\d{6}(?!\d)").Value;
+        var result = await context.Service.VerifyEmailAsync(
+            user.UserId,
+            new VerifyOtpRequest { Otp = otp });
+
+        Assert.Equal("citizen@urban.test", Assert.Single(message.To));
+        Assert.True(result.IsVerified);
+    }
+
+    [Fact]
+    public async Task EmailVerification_DuringCooldown_SendsOnlyOnce()
+    {
+        using var context = new AuthTestContext();
+        var user = context.User("citizen@urban.test", isVerified: false);
+
+        await context.Service.RequestEmailVerificationOtpAsync(user.UserId);
+        await context.Service.RequestEmailVerificationOtpAsync(user.UserId);
+
+        Assert.Single(context.SentEmails);
+    }
+
+    [Fact]
+    public async Task EmailVerification_FifthWrongAttempt_InvalidatesOtp()
+    {
+        using var context = new AuthTestContext();
+        var user = context.User("citizen@urban.test", isVerified: false);
+        await context.Service.RequestEmailVerificationOtpAsync(user.UserId);
+        var otp = Regex.Match(
+            Assert.Single(context.SentEmails).Body,
+            @"(?<!\d)\d{6}(?!\d)").Value;
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            await Assert.ThrowsAsync<Exception>(() => context.Service.VerifyEmailAsync(
+                user.UserId,
+                new VerifyOtpRequest { Otp = "000000" }));
+        }
+
+        await Assert.ThrowsAsync<Exception>(() => context.Service.VerifyEmailAsync(
+            user.UserId,
+            new VerifyOtpRequest { Otp = otp }));
+        Assert.False(user.IsVerified);
+        await context.UnitOfWork.DidNotReceive().SaveAsync();
+    }
+
+    [Fact]
+    public async Task EmailVerification_EmailFailure_DoesNotKeepOtpOrCooldown()
+    {
+        using var context = new AuthTestContext();
+        var user = context.User("citizen@urban.test", isVerified: false);
+        context.EmailFailure = new InvalidOperationException("provider unavailable");
+
+        await Assert.ThrowsAsync<Exception>(() =>
+            context.Service.RequestEmailVerificationOtpAsync(user.UserId));
+
+        context.EmailFailure = null;
+        await context.Service.RequestEmailVerificationOtpAsync(user.UserId);
+
+        Assert.Single(context.SentEmails);
+    }
+
     [Fact]
     public async Task ForgotPasswordEndpoints_AreAnonymousAndReturnNoContent()
     {
@@ -326,6 +458,12 @@ public class AuthServiceTests
         public AuthTestContext()
         {
             UserRepository.Entities.Returns(_ => Users.AsAsyncQueryable());
+            UserRepository.GetByIdAsync(Arg.Any<object>()).Returns(callInfo =>
+            {
+                var userId = callInfo.Arg<object>();
+                return Task.FromResult<User?>(
+                    Users.FirstOrDefault(user => user.UserId.Equals(userId)));
+            });
             UnitOfWork.GetRepository<User>().Returns(UserRepository);
             UnitOfWork.SaveAsync().Returns(Task.CompletedTask);
             EmailSender.SendAsync(
@@ -348,9 +486,7 @@ public class AuthServiceTests
                 Substitute.For<IJwtTokenGenerator>(),
                 EmailSender,
                 Cache,
-                Substitute.For<ILogger<AuthService>>(),
-                Substitute.For<IFirebasePhoneVerifier>(),
-                Microsoft.Extensions.Options.Options.Create(new PhoneOtpOptions()));
+                Substitute.For<ILogger<AuthService>>());
         }
 
         public List<User> Users { get; } = [];
@@ -370,7 +506,7 @@ public class AuthServiceTests
 
         public Exception? EmailFailure { get; set; }
 
-        public User User(string email, bool isActive = true)
+        public User User(string email, bool isActive = true, bool isVerified = true)
         {
             var normalizedEmail = email.Trim();
             var user = new User
@@ -381,7 +517,7 @@ public class AuthServiceTests
                 Email = normalizedEmail,
                 PasswordHash = PasswordHasher.Hash("old-secret"),
                 IsActive = isActive,
-                IsVerified = true,
+                IsVerified = isVerified,
                 RefreshToken = "refresh-token-hash",
                 IsRefreshTokenRevoked = false,
                 CreatedAt = DateTime.UtcNow

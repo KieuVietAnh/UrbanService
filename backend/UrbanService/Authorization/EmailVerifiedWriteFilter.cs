@@ -10,16 +10,8 @@ using UrbanService.DAL.Interfaces;
 
 namespace UrbanService.Authorization;
 
-/// <summary>
-/// Chặn thao tác ghi của tài khoản chưa xác thực số điện thoại.
-///
-/// Quyền đọc được giữ nguyên: người dùng chưa xác thực vẫn đăng nhập, xem bảng tin,
-/// bản đồ sự cố và thông báo như bình thường, chỉ không tạo hay sửa được gì cho tới
-/// khi xác thực số điện thoại.
-/// Ràng buộc đặt ở đây thay vì rải trong từng service để không có endpoint ghi nào
-/// lọt lưới chỉ vì người viết quên kiểm tra.
-/// </summary>
-public sealed class PhoneVerifiedWriteFilter : IAsyncAuthorizationFilter
+/// <summary>Chặn thao tác ghi của người dân chưa xác thực email.</summary>
+public sealed class EmailVerifiedWriteFilter : IAsyncAuthorizationFilter
 {
     private static readonly HashSet<string> ReadOnlyMethods = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -38,25 +30,14 @@ public sealed class PhoneVerifiedWriteFilter : IAsyncAuthorizationFilter
 
         var endpoint = context.HttpContext.GetEndpoint();
         if (endpoint?.Metadata.GetMetadata<IAllowAnonymous>() != null ||
-            endpoint?.Metadata.GetMetadata<AllowUnverifiedPhoneAttribute>() != null)
+            endpoint?.Metadata.GetMetadata<AllowUnverifiedEmailAttribute>() != null)
         {
             return;
         }
 
         var user = context.HttpContext.User;
-        if (user?.Identity?.IsAuthenticated != true)
-        {
-            return;
-        }
-
-        /*
-         * Chỉ áp cho tài khoản người dân. Tài khoản nội bộ do admin tạo và cờ
-         * is_verified của chúng mặc định là false trong database, nên áp cho mọi
-         * role sẽ khóa sạch thao tác ghi của staff, manager và admin ngay lúc
-         * deploy. Xác thực số điện thoại vốn sinh ra để truy nguyên trách nhiệm
-         * người gửi phản ánh, không phải để kiểm soát nhân sự nội bộ.
-         */
-        if (!string.Equals(
+        if (user?.Identity?.IsAuthenticated != true ||
+            !string.Equals(
                 user.FindFirstValue(ClaimTypes.Role),
                 UserRole.SERVICEUSER,
                 StringComparison.OrdinalIgnoreCase))
@@ -64,14 +45,8 @@ public sealed class PhoneVerifiedWriteFilter : IAsyncAuthorizationFilter
             return;
         }
 
-        /*
-         * Claim trong token là đường nhanh cho trường hợp phổ biến. Token phát
-         * trước lúc xác thực vẫn mang email_verified = false dù tài khoản đã xác
-         * thực xong, nên khi claim không nói "true" thì phải hỏi lại database,
-         * không thì người vừa nhập OTP sẽ bị chặn cho tới khi token hết hạn.
-         */
         if (string.Equals(
-                user.FindFirstValue(UserClaimTypes.PhoneVerified),
+                user.FindFirstValue(UserClaimTypes.EmailVerified),
                 "true",
                 StringComparison.OrdinalIgnoreCase))
         {
@@ -99,8 +74,8 @@ public sealed class PhoneVerifiedWriteFilter : IAsyncAuthorizationFilter
         context.Result = new ObjectResult(new ApiResponse<object?>
         {
             Status = StatusCodes.Status403Forbidden,
-            Msg = "Bạn cần xác thực số điện thoại trước khi thực hiện thao tác này.",
-            Data = new { code = BusinessErrorCode.PhoneNotVerified }
+            Msg = "Bạn cần xác thực email trước khi thực hiện thao tác này.",
+            Data = new { code = BusinessErrorCode.EmailNotVerified }
         })
         {
             StatusCode = StatusCodes.Status403Forbidden

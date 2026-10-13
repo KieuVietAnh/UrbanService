@@ -44,7 +44,7 @@ public class FeedbackMasterStatusTests
             incidentService,
             Microsoft.Extensions.Options.Options.Create(new FeedbackLimitOptions()));
 
-        // Gửi phản ánh từ web yêu cầu tài khoản đã xác thực số điện thoại.
+        // Gửi phản ánh từ web yêu cầu tài khoản đã xác thực email.
         var resident = context.AddActor(UserRole.SERVICEUSER, "Resident");
         var userId = resident.UserId;
 

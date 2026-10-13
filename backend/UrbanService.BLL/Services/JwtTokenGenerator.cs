@@ -22,8 +22,8 @@ namespace UrbanService.BLL.Services
             var expireMinutes = int.TryParse(_cfg["Jwt:ExpireMinutes"], out var m) ? m : 60;
 
             /*
-             * Token luôn mang role thật, kể cả khi tài khoản chưa xác thực số
-             * điện thoại. Việc xác thực SĐT không còn là điều kiện để đăng nhập
+             * Token luôn mang role thật, kể cả khi tài khoản chưa xác thực email.
+             * Việc xác thực email không còn là điều kiện để đăng nhập
              * mà là điều kiện để gửi phản ánh, và chốt đó nằm ở FeedbackService.
              *
              * Trước đây role bị thay bằng "EMAIL_VERIFICATION" khi chưa xác thực,
@@ -40,7 +40,7 @@ namespace UrbanService.BLL.Services
                 new Claim(ClaimTypes.Email, acc.Email ?? ""),
                 new Claim(ClaimTypes.Role, roleName.ToUpper()),
                 new Claim(
-                    UserClaimTypes.PhoneVerified,
+                    UserClaimTypes.EmailVerified,
                     acc.IsVerified ? "true" : "false")
             };
 

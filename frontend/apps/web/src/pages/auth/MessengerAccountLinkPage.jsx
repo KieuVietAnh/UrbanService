@@ -59,7 +59,7 @@ const getConfirmError = (error) => {
     return {
       type: 'forbidden',
       title: 'Tài khoản không đủ điều kiện',
-      message: message || 'Chỉ tài khoản người dân đã xác thực số điện thoại mới có thể liên kết Messenger.',
+      message: message || 'Chỉ tài khoản người dân đã xác thực email mới có thể liên kết Messenger.',
     };
   }
 
@@ -109,7 +109,7 @@ export const MessengerAccountLinkPage = () => {
   );
   const loginPath = buildAuthPath('/login', returnPath, { intent: 'messenger-link' });
   const registerPath = buildAuthPath('/register', returnPath);
-  const verifyPath = buildAuthPath('/verify-phone', returnPath);
+  const verifyPath = buildAuthPath('/verify-email', returnPath);
   const currentRole = normalizeRole(user?.role);
   const isCitizen = currentRole === APP_ROLES.SERVICE_USER;
 
@@ -176,11 +176,11 @@ export const MessengerAccountLinkPage = () => {
     if (!user.isVerified) {
       return (
         <>
-          <StatusCard icon={Lucide.ShieldCheck} tone="amber" title="Cần xác thực số điện thoại">
-            Hoàn tất xác thực số điện thoại của tài khoản <strong>{user.email}</strong> trước khi liên kết Messenger.
+          <StatusCard icon={Lucide.ShieldCheck} tone="amber" title="Cần xác thực email">
+            Hoàn tất xác thực email của tài khoản <strong>{user.email}</strong> trước khi liên kết Messenger.
           </StatusCard>
           <Link to={verifyPath} className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700">
-            Tiếp tục xác thực số điện thoại
+            Tiếp tục xác thực email
             <Lucide.ArrowRight size={17} aria-hidden="true" />
           </Link>
         </>
